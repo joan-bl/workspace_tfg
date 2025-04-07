@@ -1,0 +1,4 @@
+# Carpetas a ignorar
+All_img_related/
+runs/
+detection_app/Database/
