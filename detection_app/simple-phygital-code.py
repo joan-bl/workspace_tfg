@@ -455,7 +455,11 @@ def main():
         
         # Generar DataFrame con coordenadas y áreas
         df = pd.DataFrame(box_centers_and_areas, columns=['Center X', 'Center Y', 'Segment ID', 'Ellipse Area (pixels^2)'])
-        excel_path = os.path.join(RESULTS_DIR, 'bounding_box_centers.xlsx')
+        
+        # Ruta Excel actualizada en detection_app
+        excel_dir = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\detection_app"
+        os.makedirs(excel_dir, exist_ok=True)  # Asegurar que el directorio existe
+        excel_path = os.path.join(excel_dir, 'bounding_box_centers.xlsx')
         
         df.to_excel(excel_path, index=False)
         print(f"Centros y áreas de las cajas delimitadoras guardados en {excel_path}")
