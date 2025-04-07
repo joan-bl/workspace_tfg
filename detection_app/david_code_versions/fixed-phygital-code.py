@@ -5,12 +5,18 @@ import pandas as pd
 from math import ceil, pi
 from ultralytics import YOLO
 import torch
-from tkinter import Tk, Button, Text, Scrollbar, Canvas, Frame, Label, ttk, filedialog
+from tkinter import Tk, Button, Text, Scrollbar, Frame, Label, ttk, filedialog, Toplevel
 from tkinter.filedialog import askopenfilename
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 import io
 import numpy as np
+
+# Define base directory for all image-related files
+BASE_DIR = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\All_img_related\detection_app"
+# Define paths for segmented images and results
+IMAGES_SEGMENTED_DIR = os.path.join(BASE_DIR, "images_segmented")
+OUTPUT_DIR = os.path.join(BASE_DIR, "resultado_img")
 
 def configure_window(window, title):
     window.title(title)
@@ -152,10 +158,12 @@ def plot_centers(df, image_path):
     plt.ylabel('Center Y')
     plt.grid(True)
     plt.gca().invert_yaxis()  # Invertir el eje Y para que coincida con la representación de la imagen
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-    return buf
+    
+    # Guardar en archivo físico temporal
+    plot_filename = os.path.join(BASE_DIR, "temp_plot.png")
+    plt.savefig(plot_filename, format='png', dpi=100)
+    plt.close()
+    return plot_filename
 
 def plot_heatmap(df, image_path):
     """
@@ -175,23 +183,26 @@ def plot_heatmap(df, image_path):
     plt.ylabel('Center Y')
     plt.grid(True)
     plt.gca().invert_yaxis()
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png')
-    buf.seek(0)
-    return buf
+    
+    # Guardar en archivo físico temporal
+    heatmap_filename = os.path.join(BASE_DIR, "temp_heatmap.png")
+    plt.savefig(heatmap_filename, format='png', dpi=100)
+    plt.close()
+    return heatmap_filename
 
-def save_plot(buf, title):
+def save_plot(filename, title):
     """
     Guarda un gráfico en un archivo.
     """
-    file_path = filedialog.asksaveasfilename(
+    dest_path = filedialog.asksaveasfilename(
         defaultextension=".png",
         filetypes=[("PNG files", "*.png")],
         title=title
     )
-    if file_path:
-        with open(file_path, 'wb') as f:
-            f.write(buf.getbuffer())
+    if dest_path and os.path.exists(filename):
+        shutil.copy(filename, dest_path)
+        return True
+    return False
 
 def calculate_distance_matrix(centers_df):
     """
@@ -205,7 +216,37 @@ def calculate_distance_matrix(centers_df):
             distances.append(dist)
     return np.mean(distances) if distances else 0
 
-def display_results(root, excel_path, plot_buf, heatmap_buf, avg_area, count_havers, avg_distance):
+def show_image(parent, title, image_path, can_save=True, save_title="Guardar Imagen"):
+    """
+    Muestra una imagen en una ventana separada.
+    """
+    window = Toplevel(parent)
+    window.title(title)
+    window.geometry("800x800")
+    window.configure(bg='#001f3f')
+    
+    try:
+        img = Image.open(image_path)
+        img = img.resize((700, 700), Image.LANCZOS)
+        photo = ImageTk.PhotoImage(img)
+        
+        label = Label(window, image=photo, bg='#001f3f')
+        label.image = photo  # Mantener referencia
+        label.pack(padx=20, pady=20, expand=True, fill="both")
+        
+        if can_save:
+            save_button = Button(window, text="Guardar", 
+                              command=lambda: save_plot(image_path, save_title))
+            configure_button(save_button)
+            save_button.pack(side="bottom", pady=10)
+        
+        return window
+    except Exception as e:
+        Label(window, text=f"Error: {e}", fg="white", bg='#001f3f', font=("Helvetica", 14)).pack(expand=True)
+        print(f"Error al mostrar imagen {image_path}: {e}")
+        return None
+
+def display_results(root, excel_path, plot_filename, heatmap_filename, avg_area, count_havers, avg_distance):
     """
     Muestra los resultados del análisis en una interfaz gráfica.
     """
@@ -219,15 +260,13 @@ def display_results(root, excel_path, plot_buf, heatmap_buf, avg_area, count_hav
     frame1 = Frame(notebook, bg='#001f3f')
     frame2 = Frame(notebook, bg='#001f3f')
     frame3 = Frame(notebook, bg='#001f3f')
-    frame4 = Frame(notebook, bg='#001f3f')
     notebook.add(frame1, text="Coordinates")
-    notebook.add(frame2, text="Plot")
+    notebook.add(frame2, text="Visualization")
     notebook.add(frame3, text="Analysis")
-    notebook.add(frame4, text="Heatmap")
 
     # Pestaña de coordenadas
     text_area = Text(frame1, bg='#001f3f', fg="white", insertbackground="white")
-    text_area.pack(side='left', fill='both', expand=True)
+    text_area.pack(side='left', fill='both', expand=True, padx=20, pady=20)
     scrollbar = Scrollbar(frame1, command=text_area.yview)
     scrollbar.pack(side='right', fill='y')
     text_area.config(yscrollcommand=scrollbar.set)
@@ -240,32 +279,36 @@ def display_results(root, excel_path, plot_buf, heatmap_buf, avg_area, count_hav
     except Exception as e:
         text_area.insert('1.0', f"Error al cargar el archivo Excel: {e}")
 
-    # Pestaña de gráfico - Modificamos para evitar el error de pyimage
-    try:
-        # Reiniciar el puntero del búfer
-        plot_buf.seek(0)
-        plot_image = Image.open(plot_buf)
-        plot_photo = ImageTk.PhotoImage(plot_image)
-        
-        # Usar un Label con la imagen
-        plot_label = Label(frame2, image=plot_photo, bg='#001f3f')
-        # Mantener una referencia de la imagen
-        plot_label.image = plot_photo
-        plot_label.pack(expand=True, fill='both')
-        
-        # Botón para guardar el gráfico
-        save_plot_button = Button(frame2, text="Guardar Gráfico", 
-                                command=lambda: save_plot(plot_buf, "Guardar Mapa de Coordenadas"))
-        configure_button(save_plot_button)
-        save_plot_button.pack(side='bottom', pady=10)
-    except Exception as e:
-        plot_error_label = Label(frame2, text=f"Error al mostrar el gráfico: {e}", 
-                               fg="white", bg='#001f3f', font=("Helvetica", 14))
-        plot_error_label.pack(expand=True)
+    # Pestaña de visualización
+    # Usando botones para abrir las imágenes en ventanas separadas
+    def open_plot():
+        show_image(root, "Mapa de coordenadas de canales de Havers", plot_filename, 
+                 True, "Guardar Mapa de Coordenadas")
+    
+    def open_heatmap():
+        show_image(root, "Mapa de densidad de canales de Havers", heatmap_filename, 
+                 True, "Guardar Mapa de Calor")
+    
+    plot_button = Button(frame2, text="Ver Mapa de Coordenadas", command=open_plot)
+    configure_button(plot_button)
+    plot_button.pack(pady=30)
+    
+    heatmap_button = Button(frame2, text="Ver Mapa de Calor", command=open_heatmap)
+    configure_button(heatmap_button)
+    heatmap_button.pack(pady=30)
+    
+    # Botón para abrir Excel
+    def open_excel_file():
+        import os
+        os.startfile(excel_path)
+    
+    excel_button = Button(frame2, text="Abrir Archivo Excel", command=open_excel_file)
+    configure_button(excel_button)
+    excel_button.pack(pady=30)
 
     # Pestaña de análisis
     analysis_text = Text(frame3, bg='#001f3f', fg="white", insertbackground="white", font=("Helvetica", 14))
-    analysis_text.pack(fill='both', expand=True)
+    analysis_text.pack(fill='both', expand=True, padx=20, pady=20)
     analysis_text.insert('1.0', f"""
     Análisis de la imagen:
     
@@ -274,38 +317,55 @@ def display_results(root, excel_path, plot_buf, heatmap_buf, avg_area, count_hav
     Área promedio de los canales: {avg_area:.2f} pixels²
     
     Distancia media entre canales: {avg_distance:.2f} pixels
+    
+    Los archivos de resultados están guardados en:
+    {excel_path}
+    
+    Para visualizar los mapas, utilice los botones en la pestaña "Visualization".
     """)
-
-    # Pestaña de mapa de calor - Modificamos para evitar el error de pyimage
-    try:
-        # Reiniciar el puntero del búfer
-        heatmap_buf.seek(0)
-        heatmap_image = Image.open(heatmap_buf)
-        heatmap_photo = ImageTk.PhotoImage(heatmap_image)
-        
-        # Usar un Label con la imagen
-        heatmap_label = Label(frame4, image=heatmap_photo, bg='#001f3f')
-        # Mantener una referencia de la imagen
-        heatmap_label.image = heatmap_photo
-        heatmap_label.pack(expand=True, fill='both')
-        
-        # Botón para guardar el mapa de calor
-        save_heatmap_button = Button(frame4, text="Guardar Mapa de Calor", 
-                                   command=lambda: save_plot(heatmap_buf, "Guardar Mapa de Calor"))
-        configure_button(save_heatmap_button)
-        save_heatmap_button.pack(side='bottom', pady=10)
-    except Exception as e:
-        heatmap_error_label = Label(frame4, text=f"Error al mostrar el mapa de calor: {e}", 
-                                  fg="white", bg='#001f3f', font=("Helvetica", 14))
-        heatmap_error_label.pack(expand=True)
 
     # Mantener la ventana abierta
     root.mainloop()
+
+def resize_image_if_too_large(image_path, max_pixels=178956970):
+    """
+    Redimensiona una imagen si es demasiado grande.
+    """
+    print(f"Verificando tamaño de imagen: {image_path}")
+    img = cv2.imread(image_path)
+    if img is None:
+        return False
+    
+    height, width = img.shape[:2]
+    pixels = height * width
+    print(f"Tamaño original: {width}x{height} = {pixels} píxeles")
+    
+    if pixels > max_pixels:
+        # Calcular factor de escala para reducir
+        scale = (max_pixels / pixels) ** 0.5
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+        print(f"Redimensionando a: {new_width}x{new_height}")
+        
+        # Redimensionar
+        resized = cv2.resize(img, (new_width, new_height))
+        
+        # Guardar versión redimensionada (con un nombre diferente)
+        resized_path = image_path.rsplit('.', 1)[0] + '_resized.' + image_path.rsplit('.', 1)[1]
+        cv2.imwrite(resized_path, resized)
+        print(f"Imagen redimensionada guardada en: {resized_path}")
+        
+        return resized_path
+    
+    return image_path
 
 def main():
     """
     Función principal del programa.
     """
+    # Asegurar que los directorios base existan
+    os.makedirs(BASE_DIR, exist_ok=True)
+    
     # Crear ventana principal
     root = Tk()
     
@@ -325,39 +385,6 @@ def main():
         root.destroy()
         return
     
-        # AQUÍ ES DONDE PEGARÍAS EL CÓDIGO DE REDIMENSIONAMIENTO
-    def resize_image_if_too_large(image_path, max_pixels=178956970):
-        """
-        Redimensiona una imagen si es demasiado grande.
-        """
-        print(f"Verificando tamaño de imagen: {image_path}")
-        img = cv2.imread(image_path)
-        if img is None:
-            return False
-        
-        height, width = img.shape[:2]
-        pixels = height * width
-        print(f"Tamaño original: {width}x{height} = {pixels} píxeles")
-        
-        if pixels > max_pixels:
-            # Calcular factor de escala para reducir
-            scale = (max_pixels / pixels) ** 0.5
-            new_width = int(width * scale)
-            new_height = int(height * scale)
-            print(f"Redimensionando a: {new_width}x{new_height}")
-            
-            # Redimensionar
-            resized = cv2.resize(img, (new_width, new_height))
-            
-            # Guardar versión redimensionada (con un nombre diferente)
-            resized_path = image_path.rsplit('.', 1)[0] + '_resized.' + image_path.rsplit('.', 1)[1]
-            cv2.imwrite(resized_path, resized)
-            print(f"Imagen redimensionada guardada en: {resized_path}")
-            
-            return resized_path
-        
-        return image_path
-
     # Antes de dividir la imagen, verifica su tamaño
     image_path = resize_image_if_too_large(image_path)
     if not image_path:
@@ -371,19 +398,12 @@ def main():
     Label(root, text="Processing, please wait...", font=("Helvetica", 16), fg="white", bg='#001f3f').pack(expand=True)
     root.update()
     
-    # Directorios para imágenes segmentadas y resultados
-    images_dir = 'imagenes_sep'
-    output_dir = 'resultado_img'
     confidence_threshold = 0.4
-    
-    # Crear directorios para segmentos y resultados
-    os.makedirs(images_dir, exist_ok=True)
-    os.makedirs(output_dir, exist_ok=True)
     
     try:
         # Dividir la imagen en segmentos
         print(f"Dividiendo imagen {image_path} en segmentos...")
-        segment_positions, segment_width, segment_height = divide_and_save_image(image_path, images_dir)
+        segment_positions, segment_width, segment_height = divide_and_save_image(image_path, IMAGES_SEGMENTED_DIR)
         if segment_positions is None:
             print("Error al dividir la imagen.")
             root.destroy()
@@ -391,11 +411,30 @@ def main():
         
         # Cargar modelo YOLO
         print("Cargando modelo YOLO...")
-        model_path = r"C:\Users\joanb\OneDrive\Escritorio\TFG\workspace\runs\detect\train\weights\best.pt"
+        model_path = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\runs\detect\train\weights\best.pt"
         print(f"Ruta del modelo: {model_path}")
         
+        # Comprobar si el modelo existe en esta ruta
         if not os.path.exists(model_path):
-            print(f"ERROR: El archivo del modelo {model_path} no existe.")
+            print(f"Modelo no encontrado en: {model_path}")
+            print("Intentando rutas alternativas...")
+            
+            # Intentar con rutas alternativas
+            alternative_paths = [
+                r"C:\Users\joanb\OneDrive\Escritorio\TFG\workspace\runs\detect\train\weights\best.pt",
+                r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\runs\detect\train13\weights\best.pt",
+                r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\osteona\best.pt"
+            ]
+            
+            for alt_path in alternative_paths:
+                print(f"Comprobando: {alt_path}")
+                if os.path.exists(alt_path):
+                    model_path = alt_path
+                    print(f"Modelo encontrado en: {model_path}")
+                    break
+        
+        if not os.path.exists(model_path):
+            print(f"ERROR: No se encontró el modelo en ninguna de las rutas verificadas.")
             root.destroy()
             return
             
@@ -403,12 +442,12 @@ def main():
         
         # Obtener lista de archivos de segmentos
         segment_files = sorted(
-            [f for f in os.listdir(images_dir) if f.startswith("segment_") and f.endswith('.png')],
+            [f for f in os.listdir(IMAGES_SEGMENTED_DIR) if f.startswith("segment_") and f.endswith('.png')],
             key=lambda x: int(x.split('_')[-1].split('.')[0]) if '_' in x and x.split('_')[-1].split('.')[0].isdigit() else 0
         )
         
         if not segment_files:
-            print(f"No se encontraron archivos de segmentos en {images_dir}")
+            print(f"No se encontraron archivos de segmentos en {IMAGES_SEGMENTED_DIR}")
             root.destroy()
             return
             
@@ -421,7 +460,7 @@ def main():
         print("Analizando segmentos con el modelo YOLO...")
         for idx, (start_x, start_y, segment_id) in enumerate(segment_positions):
             segment_filename = f"segment_{segment_id}.png"
-            segment_path = os.path.join(images_dir, segment_filename)
+            segment_path = os.path.join(IMAGES_SEGMENTED_DIR, segment_filename)
             
             if not os.path.exists(segment_path):
                 print(f"Advertencia: Archivo de segmento no encontrado: {segment_path}")
@@ -440,7 +479,11 @@ def main():
 
                 # Guardar imagen con anotaciones
                 annotated_img = result.plot()
-                output_path = os.path.join(output_dir, f"result_{segment_id}.png")
+                output_path = os.path.join(OUTPUT_DIR, f"result_{segment_id}.png")
+                
+                # Asegurar que el directorio de salida existe
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+                
                 cv2.imwrite(output_path, annotated_img)
         
         # Si no se detectaron canales
@@ -451,29 +494,46 @@ def main():
         
         print(f"Se detectaron un total de {len(box_centers_and_areas)} canales de Havers")
         
+        # Crear directorio para resultados si no existe
+        results_dir = os.path.join(BASE_DIR, "results")
+        os.makedirs(results_dir, exist_ok=True)
+        
         # Generar DataFrame con coordenadas y áreas
         df = pd.DataFrame(box_centers_and_areas, columns=['Center X', 'Center Y', 'Segment ID', 'Ellipse Area (pixels^2)'])
-        excel_path = 'bounding_box_centers.xlsx'
+        excel_path = os.path.join(results_dir, 'bounding_box_centers.xlsx')
+        
         df.to_excel(excel_path, index=False)
         print(f"Centros y áreas de las cajas delimitadoras guardados en {excel_path}")
         
         # Generar visualizaciones
         print("Generando visualizaciones...")
-        plot_buf = plot_centers(df, image_path)
-        heatmap_buf = plot_heatmap(df, image_path)
+        plot_filename = plot_centers(df, image_path)
+        heatmap_filename = plot_heatmap(df, image_path)
         avg_area = df['Ellipse Area (pixels^2)'].mean()
         count_havers = df.shape[0]
         avg_distance = calculate_distance_matrix(df)
         
         # Mostrar resultados
         print("Mostrando resultados...")
-        display_results(root, excel_path, plot_buf, heatmap_buf, avg_area, count_havers, avg_distance)
+        display_results(root, excel_path, plot_filename, heatmap_filename, avg_area, count_havers, avg_distance)
         
     except Exception as e:
         print(f"Error durante la ejecución: {e}")
         import traceback
         traceback.print_exc()
         root.destroy()
+    finally:
+        # Limpiar archivos temporales al finalizar
+        temp_files = [
+            os.path.join(BASE_DIR, "temp_plot.png"),
+            os.path.join(BASE_DIR, "temp_heatmap.png")
+        ]
+        for file in temp_files:
+            if os.path.exists(file):
+                try:
+                    os.remove(file)
+                except:
+                    pass
 
 if __name__ == '__main__':
     main()

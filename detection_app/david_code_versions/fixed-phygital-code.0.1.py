@@ -5,7 +5,7 @@ import pandas as pd
 from math import ceil, pi
 from ultralytics import YOLO
 import torch
-from tkinter import Tk, Button, Text, Scrollbar, Frame, Label, ttk, filedialog, Toplevel
+from tkinter import Tk, Button, Text, Scrollbar, Canvas, Frame, Label, ttk, filedialog
 from tkinter.filedialog import askopenfilename
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
@@ -159,7 +159,7 @@ def plot_centers(df, image_path):
     plt.grid(True)
     plt.gca().invert_yaxis()  # Invertir el eje Y para que coincida con la representación de la imagen
     
-    # Guardar en archivo físico temporal
+    # Guardar en archivo físico temporal en lugar de buffer
     plot_filename = os.path.join(BASE_DIR, "temp_plot.png")
     plt.savefig(plot_filename, format='png', dpi=100)
     plt.close()
@@ -184,7 +184,7 @@ def plot_heatmap(df, image_path):
     plt.grid(True)
     plt.gca().invert_yaxis()
     
-    # Guardar en archivo físico temporal
+    # Guardar en archivo físico temporal en lugar de buffer
     heatmap_filename = os.path.join(BASE_DIR, "temp_heatmap.png")
     plt.savefig(heatmap_filename, format='png', dpi=100)
     plt.close()
@@ -216,36 +216,6 @@ def calculate_distance_matrix(centers_df):
             distances.append(dist)
     return np.mean(distances) if distances else 0
 
-def show_image(parent, title, image_path, can_save=True, save_title="Guardar Imagen"):
-    """
-    Muestra una imagen en una ventana separada.
-    """
-    window = Toplevel(parent)
-    window.title(title)
-    window.geometry("800x800")
-    window.configure(bg='#001f3f')
-    
-    try:
-        img = Image.open(image_path)
-        img = img.resize((700, 700), Image.LANCZOS)
-        photo = ImageTk.PhotoImage(img)
-        
-        label = Label(window, image=photo, bg='#001f3f')
-        label.image = photo  # Mantener referencia
-        label.pack(padx=20, pady=20, expand=True, fill="both")
-        
-        if can_save:
-            save_button = Button(window, text="Guardar", 
-                              command=lambda: save_plot(image_path, save_title))
-            configure_button(save_button)
-            save_button.pack(side="bottom", pady=10)
-        
-        return window
-    except Exception as e:
-        Label(window, text=f"Error: {e}", fg="white", bg='#001f3f', font=("Helvetica", 14)).pack(expand=True)
-        print(f"Error al mostrar imagen {image_path}: {e}")
-        return None
-
 def display_results(root, excel_path, plot_filename, heatmap_filename, avg_area, count_havers, avg_distance):
     """
     Muestra los resultados del análisis en una interfaz gráfica.
@@ -260,13 +230,15 @@ def display_results(root, excel_path, plot_filename, heatmap_filename, avg_area,
     frame1 = Frame(notebook, bg='#001f3f')
     frame2 = Frame(notebook, bg='#001f3f')
     frame3 = Frame(notebook, bg='#001f3f')
+    frame4 = Frame(notebook, bg='#001f3f')
     notebook.add(frame1, text="Coordinates")
-    notebook.add(frame2, text="Visualization")
+    notebook.add(frame2, text="Plot")
     notebook.add(frame3, text="Analysis")
+    notebook.add(frame4, text="Heatmap")
 
     # Pestaña de coordenadas
     text_area = Text(frame1, bg='#001f3f', fg="white", insertbackground="white")
-    text_area.pack(side='left', fill='both', expand=True, padx=20, pady=20)
+    text_area.pack(side='left', fill='both', expand=True)
     scrollbar = Scrollbar(frame1, command=text_area.yview)
     scrollbar.pack(side='right', fill='y')
     text_area.config(yscrollcommand=scrollbar.set)
@@ -279,32 +251,34 @@ def display_results(root, excel_path, plot_filename, heatmap_filename, avg_area,
     except Exception as e:
         text_area.insert('1.0', f"Error al cargar el archivo Excel: {e}")
 
-    # Pestaña de visualización
-    # Usando botones para abrir las imágenes en ventanas separadas
-    def open_plot():
-        show_image(root, "Mapa de coordenadas de canales de Havers", plot_filename, 
-                 True, "Guardar Mapa de Coordenadas")
-    
-    def open_heatmap():
-        show_image(root, "Mapa de densidad de canales de Havers", heatmap_filename, 
-                 True, "Guardar Mapa de Calor")
-    
-    plot_button = Button(frame2, text="Ver Mapa de Coordenadas", command=open_plot)
-    configure_button(plot_button)
-    plot_button.pack(pady=30)
-    
-    heatmap_button = Button(frame2, text="Ver Mapa de Calor", command=open_heatmap)
-    configure_button(heatmap_button)
-    heatmap_button.pack(pady=30)
-    
-    # Botón para abrir Excel
-    def open_excel_file():
-        import os
-        os.startfile(excel_path)
-    
-    excel_button = Button(frame2, text="Abrir Archivo Excel", command=open_excel_file)
-    configure_button(excel_button)
-    excel_button.pack(pady=30)
+    # Pestaña de gráfico usando archivo temporal
+    try:
+        if os.path.exists(plot_filename):
+            img = Image.open(plot_filename)
+            img = img.resize((800, 800), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(img)
+            
+            # Crear un contenedor para la imagen
+            plot_frame = Frame(frame2, bg='#001f3f')
+            plot_frame.pack(fill='both', expand=True, padx=10, pady=10)
+            
+            # Crear un Label para mostrar la imagen
+            plot_label = Label(plot_frame, image=photo, bg='#001f3f')
+            plot_label.image = photo  # Mantener referencia
+            plot_label.pack(fill='both', expand=True)
+            
+            # Botón para guardar el gráfico
+            save_button = Button(frame2, text="Guardar Gráfico", 
+                                command=lambda: save_plot(plot_filename, "Guardar Mapa de Coordenadas"))
+            configure_button(save_button)
+            save_button.pack(side='bottom', pady=10)
+        else:
+            raise FileNotFoundError(f"Archivo de gráfico no encontrado: {plot_filename}")
+    except Exception as e:
+        error_msg = f"Error al mostrar el gráfico: {e}"
+        print(error_msg)
+        error_label = Label(frame2, text=error_msg, fg="white", bg='#001f3f', font=("Helvetica", 14))
+        error_label.pack(expand=True, padx=20, pady=20)
 
     # Pestaña de análisis
     analysis_text = Text(frame3, bg='#001f3f', fg="white", insertbackground="white", font=("Helvetica", 14))
@@ -317,12 +291,36 @@ def display_results(root, excel_path, plot_filename, heatmap_filename, avg_area,
     Área promedio de los canales: {avg_area:.2f} pixels²
     
     Distancia media entre canales: {avg_distance:.2f} pixels
-    
-    Los archivos de resultados están guardados en:
-    {excel_path}
-    
-    Para visualizar los mapas, utilice los botones en la pestaña "Visualization".
     """)
+
+    # Pestaña de mapa de calor usando archivo temporal
+    try:
+        if os.path.exists(heatmap_filename):
+            img = Image.open(heatmap_filename)
+            img = img.resize((800, 800), Image.LANCZOS)
+            photo = ImageTk.PhotoImage(img)
+            
+            # Crear un contenedor para la imagen
+            heatmap_frame = Frame(frame4, bg='#001f3f')
+            heatmap_frame.pack(fill='both', expand=True, padx=10, pady=10)
+            
+            # Crear un Label para mostrar la imagen
+            heatmap_label = Label(heatmap_frame, image=photo, bg='#001f3f')
+            heatmap_label.image = photo  # Mantener referencia
+            heatmap_label.pack(fill='both', expand=True)
+            
+            # Botón para guardar el mapa de calor
+            save_button = Button(frame4, text="Guardar Mapa de Calor", 
+                                command=lambda: save_plot(heatmap_filename, "Guardar Mapa de Calor"))
+            configure_button(save_button)
+            save_button.pack(side='bottom', pady=10)
+        else:
+            raise FileNotFoundError(f"Archivo de mapa de calor no encontrado: {heatmap_filename}")
+    except Exception as e:
+        error_msg = f"Error al mostrar el mapa de calor: {e}"
+        print(error_msg)
+        error_label = Label(frame4, text=error_msg, fg="white", bg='#001f3f', font=("Helvetica", 14))
+        error_label.pack(expand=True, padx=20, pady=20)
 
     # Mantener la ventana abierta
     root.mainloop()

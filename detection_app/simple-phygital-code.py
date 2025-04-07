@@ -5,11 +5,9 @@ import pandas as pd
 from math import ceil, pi
 from ultralytics import YOLO
 import torch
-from tkinter import Tk, Button, Text, Scrollbar, Frame, Label, ttk, filedialog, Toplevel
+from tkinter import Tk, Button, Text, Scrollbar, Frame, Label, filedialog
 from tkinter.filedialog import askopenfilename
-from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
-import io
 import numpy as np
 
 # Define base directory for all image-related files
@@ -17,10 +15,11 @@ BASE_DIR = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\All_img_relate
 # Define paths for segmented images and results
 IMAGES_SEGMENTED_DIR = os.path.join(BASE_DIR, "images_segmented")
 OUTPUT_DIR = os.path.join(BASE_DIR, "resultado_img")
+RESULTS_DIR = os.path.join(BASE_DIR, "results")
 
 def configure_window(window, title):
     window.title(title)
-    window.geometry("1000x1000")
+    window.geometry("800x600")
     window.configure(bg='#001f3f')
 
 def configure_button(button):
@@ -39,10 +38,10 @@ def configure_button(button):
     button.bind("<Leave>", lambda e: button.configure(bg="#4CAF50"))
 
 def select_image(root):
-    image_path = None  # Inicializa la variable
+    image_path = None
     
     def on_button_click():
-        nonlocal image_path  # Usa nonlocal para modificar la variable del ámbito superior
+        nonlocal image_path
         file_path = askopenfilename(filetypes=[("Image files", "*.jpg;*.jpeg;*.png")])
         if file_path:
             image_path = file_path
@@ -159,8 +158,8 @@ def plot_centers(df, image_path):
     plt.grid(True)
     plt.gca().invert_yaxis()  # Invertir el eje Y para que coincida con la representación de la imagen
     
-    # Guardar en archivo físico temporal
-    plot_filename = os.path.join(BASE_DIR, "temp_plot.png")
+    # Guardar en archivo físico
+    plot_filename = os.path.join(RESULTS_DIR, "mapa_coordenadas.png")
     plt.savefig(plot_filename, format='png', dpi=100)
     plt.close()
     return plot_filename
@@ -184,25 +183,11 @@ def plot_heatmap(df, image_path):
     plt.grid(True)
     plt.gca().invert_yaxis()
     
-    # Guardar en archivo físico temporal
-    heatmap_filename = os.path.join(BASE_DIR, "temp_heatmap.png")
+    # Guardar en archivo físico
+    heatmap_filename = os.path.join(RESULTS_DIR, "mapa_calor.png")
     plt.savefig(heatmap_filename, format='png', dpi=100)
     plt.close()
     return heatmap_filename
-
-def save_plot(filename, title):
-    """
-    Guarda un gráfico en un archivo.
-    """
-    dest_path = filedialog.asksaveasfilename(
-        defaultextension=".png",
-        filetypes=[("PNG files", "*.png")],
-        title=title
-    )
-    if dest_path and os.path.exists(filename):
-        shutil.copy(filename, dest_path)
-        return True
-    return False
 
 def calculate_distance_matrix(centers_df):
     """
@@ -216,114 +201,87 @@ def calculate_distance_matrix(centers_df):
             distances.append(dist)
     return np.mean(distances) if distances else 0
 
-def show_image(parent, title, image_path, can_save=True, save_title="Guardar Imagen"):
+def show_results_simple(root, results):
     """
-    Muestra una imagen en una ventana separada.
-    """
-    window = Toplevel(parent)
-    window.title(title)
-    window.geometry("800x800")
-    window.configure(bg='#001f3f')
-    
-    try:
-        img = Image.open(image_path)
-        img = img.resize((700, 700), Image.LANCZOS)
-        photo = ImageTk.PhotoImage(img)
-        
-        label = Label(window, image=photo, bg='#001f3f')
-        label.image = photo  # Mantener referencia
-        label.pack(padx=20, pady=20, expand=True, fill="both")
-        
-        if can_save:
-            save_button = Button(window, text="Guardar", 
-                              command=lambda: save_plot(image_path, save_title))
-            configure_button(save_button)
-            save_button.pack(side="bottom", pady=10)
-        
-        return window
-    except Exception as e:
-        Label(window, text=f"Error: {e}", fg="white", bg='#001f3f', font=("Helvetica", 14)).pack(expand=True)
-        print(f"Error al mostrar imagen {image_path}: {e}")
-        return None
-
-def display_results(root, excel_path, plot_filename, heatmap_filename, avg_area, count_havers, avg_distance):
-    """
-    Muestra los resultados del análisis en una interfaz gráfica.
+    Muestra los resultados en una interfaz simple.
     """
     for widget in root.winfo_children():
         widget.destroy()
-    configure_window(root, "Results")
-    notebook = ttk.Notebook(root)
-    notebook.pack(fill='both', expand=True)
-
-    # Crear pestañas
-    frame1 = Frame(notebook, bg='#001f3f')
-    frame2 = Frame(notebook, bg='#001f3f')
-    frame3 = Frame(notebook, bg='#001f3f')
-    notebook.add(frame1, text="Coordinates")
-    notebook.add(frame2, text="Visualization")
-    notebook.add(frame3, text="Analysis")
-
-    # Pestaña de coordenadas
-    text_area = Text(frame1, bg='#001f3f', fg="white", insertbackground="white")
-    text_area.pack(side='left', fill='both', expand=True, padx=20, pady=20)
-    scrollbar = Scrollbar(frame1, command=text_area.yview)
-    scrollbar.pack(side='right', fill='y')
-    text_area.config(yscrollcommand=scrollbar.set)
-
-    # Mostrar contenido del archivo de Excel
-    try:
-        with pd.ExcelFile(excel_path) as xls:
-            df = pd.read_excel(xls)
-            text_area.insert('1.0', df.to_string())
-    except Exception as e:
-        text_area.insert('1.0', f"Error al cargar el archivo Excel: {e}")
-
-    # Pestaña de visualización
-    # Usando botones para abrir las imágenes en ventanas separadas
-    def open_plot():
-        show_image(root, "Mapa de coordenadas de canales de Havers", plot_filename, 
-                 True, "Guardar Mapa de Coordenadas")
     
-    def open_heatmap():
-        show_image(root, "Mapa de densidad de canales de Havers", heatmap_filename, 
-                 True, "Guardar Mapa de Calor")
+    configure_window(root, "PhygitalBone 2.0 - Results")
     
-    plot_button = Button(frame2, text="Ver Mapa de Coordenadas", command=open_plot)
-    configure_button(plot_button)
-    plot_button.pack(pady=30)
+    # Título
+    title = Label(root, text="Resultados del análisis", font=("Helvetica", 20), fg="white", bg="#001f3f")
+    title.pack(pady=20)
     
-    heatmap_button = Button(frame2, text="Ver Mapa de Calor", command=open_heatmap)
-    configure_button(heatmap_button)
-    heatmap_button.pack(pady=30)
+    # Mostrar estadísticas
+    stats_frame = Frame(root, bg="#001f3f", padx=20, pady=20)
+    stats_frame.pack(fill="both", expand=True)
+    
+    stats_text = f"""
+    Número de canales de Havers detectados: {results['count']}
+    
+    Área promedio de los canales: {results['avg_area']:.2f} pixels²
+    
+    Distancia media entre canales: {results['avg_distance']:.2f} pixels
+    """
+    
+    stats_label = Label(stats_frame, text=stats_text, font=("Helvetica", 14), 
+                       fg="white", bg="#001f3f", justify="left")
+    stats_label.pack(anchor="w", pady=10)
+    
+    # Información de archivos
+    files_text = f"""
+    Archivos generados:
+    
+    Excel con coordenadas: {results['excel_path']}
+    Mapa de coordenadas: {results['plot_path']}
+    Mapa de calor: {results['heatmap_path']}
+    """
+    
+    files_label = Label(stats_frame, text=files_text, font=("Helvetica", 12), 
+                       fg="white", bg="#001f3f", justify="left")
+    files_label.pack(anchor="w", pady=10)
+    
+    # Botones para abrir resultados
+    buttons_frame = Frame(root, bg="#001f3f", padx=20, pady=20)
+    buttons_frame.pack(fill="x")
+    
+    # Función para abrir archivos
+    def open_file(file_path):
+        import os
+        import subprocess
+        
+        if os.path.exists(file_path):
+            if os.name == 'nt':  # Windows
+                os.startfile(file_path)
+            elif os.name == 'posix':  # Linux, macOS
+                subprocess.call(('xdg-open', file_path))
     
     # Botón para abrir Excel
-    def open_excel_file():
-        import os
-        os.startfile(excel_path)
-    
-    excel_button = Button(frame2, text="Abrir Archivo Excel", command=open_excel_file)
+    excel_button = Button(buttons_frame, text="Ver datos en Excel", 
+                         command=lambda: open_file(results['excel_path']))
     configure_button(excel_button)
-    excel_button.pack(pady=30)
-
-    # Pestaña de análisis
-    analysis_text = Text(frame3, bg='#001f3f', fg="white", insertbackground="white", font=("Helvetica", 14))
-    analysis_text.pack(fill='both', expand=True, padx=20, pady=20)
-    analysis_text.insert('1.0', f"""
-    Análisis de la imagen:
+    excel_button.pack(side="left", padx=10)
     
-    Número de canales de Havers detectados: {count_havers}
+    # Botón para abrir mapa de coordenadas
+    plot_button = Button(buttons_frame, text="Ver mapa de coordenadas", 
+                        command=lambda: open_file(results['plot_path']))
+    configure_button(plot_button)
+    plot_button.pack(side="left", padx=10)
     
-    Área promedio de los canales: {avg_area:.2f} pixels²
+    # Botón para abrir mapa de calor
+    heatmap_button = Button(buttons_frame, text="Ver mapa de calor", 
+                           command=lambda: open_file(results['heatmap_path']))
+    configure_button(heatmap_button)
+    heatmap_button.pack(side="left", padx=10)
     
-    Distancia media entre canales: {avg_distance:.2f} pixels
+    # Botón para abrir carpeta de resultados
+    folder_button = Button(buttons_frame, text="Abrir carpeta de resultados", 
+                          command=lambda: open_file(RESULTS_DIR))
+    configure_button(folder_button)
+    folder_button.pack(side="left", padx=10)
     
-    Los archivos de resultados están guardados en:
-    {excel_path}
-    
-    Para visualizar los mapas, utilice los botones en la pestaña "Visualization".
-    """)
-
     # Mantener la ventana abierta
     root.mainloop()
 
@@ -365,6 +323,7 @@ def main():
     """
     # Asegurar que los directorios base existan
     os.makedirs(BASE_DIR, exist_ok=True)
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     
     # Crear ventana principal
     root = Tk()
@@ -494,13 +453,9 @@ def main():
         
         print(f"Se detectaron un total de {len(box_centers_and_areas)} canales de Havers")
         
-        # Crear directorio para resultados si no existe
-        results_dir = os.path.join(BASE_DIR, "results")
-        os.makedirs(results_dir, exist_ok=True)
-        
         # Generar DataFrame con coordenadas y áreas
         df = pd.DataFrame(box_centers_and_areas, columns=['Center X', 'Center Y', 'Segment ID', 'Ellipse Area (pixels^2)'])
-        excel_path = os.path.join(results_dir, 'bounding_box_centers.xlsx')
+        excel_path = os.path.join(RESULTS_DIR, 'bounding_box_centers.xlsx')
         
         df.to_excel(excel_path, index=False)
         print(f"Centros y áreas de las cajas delimitadoras guardados en {excel_path}")
@@ -513,27 +468,25 @@ def main():
         count_havers = df.shape[0]
         avg_distance = calculate_distance_matrix(df)
         
+        # Preparar resultados
+        results = {
+            'excel_path': excel_path,
+            'plot_path': plot_filename,
+            'heatmap_path': heatmap_filename,
+            'avg_area': avg_area,
+            'count': count_havers,
+            'avg_distance': avg_distance
+        }
+        
         # Mostrar resultados
         print("Mostrando resultados...")
-        display_results(root, excel_path, plot_filename, heatmap_filename, avg_area, count_havers, avg_distance)
+        show_results_simple(root, results)
         
     except Exception as e:
         print(f"Error durante la ejecución: {e}")
         import traceback
         traceback.print_exc()
         root.destroy()
-    finally:
-        # Limpiar archivos temporales al finalizar
-        temp_files = [
-            os.path.join(BASE_DIR, "temp_plot.png"),
-            os.path.join(BASE_DIR, "temp_heatmap.png")
-        ]
-        for file in temp_files:
-            if os.path.exists(file):
-                try:
-                    os.remove(file)
-                except:
-                    pass
 
 if __name__ == '__main__':
     main()
