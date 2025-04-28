@@ -1,30 +1,19 @@
 import cv2
 import os
-import shutil
 import pandas as pd
-from math import ceil, pi
-from ultralytics import YOLO
-import torch
-from tkinter import Tk, Button, Text, Scrollbar, Frame, Label, ttk, filedialog, Toplevel
-from tkinter.filedialog import askopenfilename
+import numpy as np
+from tkinter import Tk, Button, Text, Frame, Label, ttk, filedialog, Toplevel, messagebox
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
-import io
-import numpy as np
-
-# Define base directory for all image-related files
-BASE_DIR = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\All_img_related\detection_app"
-# Define paths for segmented images and results
-IMAGES_SEGMENTED_DIR = os.path.join(BASE_DIR, "images_segmented")
-OUTPUT_DIR = os.path.join(BASE_DIR, "resultado_img")
 
 def configure_window(window, title):
+    """Configura el aspecto visual de la ventana principal"""
     window.title(title)
     window.geometry("1000x1000")
     window.configure(bg='#001f3f')
 
 def configure_button(button):
-    # Define el aspecto visual del botón
+    """Configura el aspecto visual de los botones"""
     button.configure(
         bg="#4CAF50",
         fg="white",
@@ -34,506 +23,411 @@ def configure_button(button):
         relief="raised",
         borderwidth=2
     )
-    # Añadir efectos hover si se desea
+    # Añadir efectos hover
     button.bind("<Enter>", lambda e: button.configure(bg="#45a049"))
     button.bind("<Leave>", lambda e: button.configure(bg="#4CAF50"))
 
-def select_image(root):
-    image_path = None  # Inicializa la variable
+def reconstruir_imagen_con_detecciones(imagen_original, excel_path, output_path):
+    """
+    Reconstruye la imagen original con las detecciones de canales marcadas.
     
-    def on_button_click():
-        nonlocal image_path  # Usa nonlocal para modificar la variable del ámbito superior
-        file_path = askopenfilename(filetypes=[("Image files", "*.jpg;*.jpeg;*.png")])
-        if file_path:
-            image_path = file_path
-            root.quit()
-            for widget in root.winfo_children():
-                widget.destroy()
-
-    configure_window(root, "Select Image")
-    title = Label(root, text="PhygitalBone 2.0", font=("Helvetica", 24), fg="white", bg="#001f3f")
-    title.pack(pady=20)
-
-    button = Button(root, text="Load Image", command=on_button_click)
-    configure_button(button)
-    button.pack(expand=True)
-
-    root.mainloop()
-    return image_path
-
-def divide_and_save_image(image_path, output_dir, num_segments=150):
+    Args:
+        imagen_original: Ruta a la imagen original
+        excel_path: Ruta al archivo Excel con las coordenadas de detecciones
+        output_path: Ruta donde guardar la imagen reconstruida
+    
+    Returns:
+        imagen_reconstruida: Imagen con las detecciones marcadas
     """
-    Divide una imagen en segmentos más pequeños y los guarda en el directorio especificado.
-    """
-    # Verificar si el directorio existe y limpiarlo (sin eliminarlo)
-    if os.path.exists(output_dir):
-        for file in os.listdir(output_dir):
-            if file.startswith("segment_") and file.endswith(".png"):
-                os.remove(os.path.join(output_dir, file))
-    else:
-        os.makedirs(output_dir, exist_ok=True)
-
-    # Leer la imagen
-    print(f"Leyendo imagen desde: {image_path}")
-    try:
-        # Usar cv2.imread directamente para leer la imagen
-        image = cv2.imread(image_path)
-        
-        # Si falla, intentar con otro método
-        if image is None:
-            print("cv2.imread falló, intentando otro método...")
-            # Leer como bytes y decodificar
-            with open(image_path, 'rb') as f:
-                img_bytes = f.read()
-            image = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
+    # Cargar la imagen original
+    imagen = cv2.imread(imagen_original)
+    
+    # Cargar datos de detecciones
+    df = pd.read_excel(excel_path)
+    
+    # Dibujar cada canal detectado como un círculo en la imagen
+    for i, row in df.iterrows():
+        # Procesar valores de centro que podrían ser tensores o strings
+        try:
+            # Si es string que contiene tensor, extraer el número
+            if isinstance(row['Center X'], str) and 'tensor' in row['Center X']:
+                # Extraer el número entre paréntesis
+                valor = row['Center X'].split('(')[1].split(')')[0]
+                centro_x = float(valor)
+            else:
+                centro_x = float(row['Center X'])
             
-        if image is None:
-            print(f"Error: No se pudo cargar la imagen {image_path}")
-            return None, None, None
-    except Exception as e:
-        print(f"Error al leer la imagen: {e}")
-        return None, None, None
-
-    # Obtener dimensiones de la imagen
-    print(f"Dimensiones de la imagen: {image.shape}")
-    
-    # Configurar la división
-    cols = 15
-    rows = ceil(num_segments / cols)
-    segment_height = image.shape[0] // rows
-    segment_width = image.shape[1] // cols
-    
-    print(f"Dividiendo en {rows}x{cols} segmentos")
-    print(f"Tamaño de cada segmento: {segment_width}x{segment_height}")
-
-    # Dividir y guardar
-    segment_positions = []
-    for i in range(rows):
-        for j in range(cols):
-            start_y = i * segment_height
-            end_y = start_y + segment_height if i < rows - 1 else image.shape[0]
-            start_x = j * segment_width
-            end_x = start_x + segment_width if j < cols - 1 else image.shape[1]
+            if isinstance(row['Center Y'], str) and 'tensor' in row['Center Y']:
+                # Extraer el número entre paréntesis
+                valor = row['Center Y'].split('(')[1].split(')')[0]
+                centro_y = float(valor)
+            else:
+                centro_y = float(row['Center Y'])
+                
+            # Convertir a enteros para coordenadas de píxeles
+            centro_x = int(centro_x)
+            centro_y = int(centro_y)
             
-            segment = image[start_y:end_y, start_x:end_x]
-            segment_filename = f"segment_{i * cols + j + 1}.png"
-            segment_path = os.path.join(output_dir, segment_filename)
+            # Procesar el área de manera similar
+            if isinstance(row['Ellipse Area (pixels^2)'], str) and 'tensor' in row['Ellipse Area (pixels^2)']:
+                # Extraer el número entre paréntesis
+                valor = row['Ellipse Area (pixels^2)'].split('(')[1].split(')')[0]
+                area = float(valor)
+            else:
+                area = float(row['Ellipse Area (pixels^2)'])
+                
+            # Calcular radio aproximado del canal basado en el área (A = πr²)
+            radio = int(np.sqrt(area / np.pi))
             
-            cv2.imwrite(segment_path, segment)
-            print(f"Guardado segmento {i * cols + j + 1} en {segment_path}")
+            # Dibujar círculo en la posición del canal
+            cv2.circle(imagen, (centro_x, centro_y), radio, (0, 255, 0), 2)
+        except Exception as e:
+            print(f"Error procesando fila {i}: {e}")
+            continue  # Saltar esta detección si hay error
+        
+        # Dibujar círculo en la posición del canal
+        cv2.circle(imagen, (centro_x, centro_y), radio, (0, 255, 0), 2)
+    
+    # Guardar imagen reconstruida
+    cv2.imwrite(output_path, imagen)
+    
+    return imagen
+
+def analizar_cuadrantes(imagen, df, output_path):
+    """
+    Divide la imagen en 9 cuadrantes y analiza la distribución de canales.
+    
+    Args:
+        imagen: Imagen reconstruida con detecciones
+        df: DataFrame con coordenadas y áreas de canales
+        output_path: Ruta donde guardar la imagen final
+    
+    Returns:
+        imagen_con_cuadrantes: Imagen con cuadrantes y marcado el de mayor densidad
+        areas_por_cuadrante: Array con áreas por cuadrante
+        canales_por_cuadrante: Lista de canales agrupados por cuadrante
+    """
+    height, width = imagen.shape[:2]
+    
+    # Calcular dimensiones de cuadrantes
+    cuad_height = height // 3
+    cuad_width = width // 3
+    
+    # Crear estructura para almacenar áreas por cuadrante
+    areas_por_cuadrante = np.zeros(9)
+    canales_por_cuadrante = [[] for _ in range(9)]
+    
+    # Clasificar cada canal en su cuadrante correspondiente
+    for i, row in df.iterrows():
+        try:
+            # Procesar coordenadas X e Y que podrían ser tensores o strings
+            if isinstance(row['Center X'], str) and 'tensor' in row['Center X']:
+                # Extraer el número entre paréntesis
+                valor = row['Center X'].split('(')[1].split(')')[0]
+                x = float(valor)
+            else:
+                x = float(row['Center X'])
+                
+            if isinstance(row['Center Y'], str) and 'tensor' in row['Center Y']:
+                # Extraer el número entre paréntesis
+                valor = row['Center Y'].split('(')[1].split(')')[0]
+                y = float(valor)
+            else:
+                y = float(row['Center Y'])
+                
+            # Convertir a enteros para coordenadas de píxeles
+            x = int(x)
+            y = int(y)
             
-            segment_positions.append((start_x, start_y, i * cols + j + 1))
-
-    print(f"Se guardaron {len(segment_positions)} segmentos en {output_dir}")
-    return segment_positions, segment_width, segment_height
-
-def calculate_box_centers_and_areas(boxes, start_x, start_y, segment_id):
-    """
-    Calcula los centros y áreas de las cajas de detección.
-    """
-    centers = []
-    for box in boxes:
-        xyxy = box.xyxy.clone().detach().cpu().view(1, 4)
-        width = xyxy[0, 2] - xyxy[0, 0]
-        height = xyxy[0, 3] - xyxy[0, 1]
-        cx = start_x + (xyxy[0, 0] + xyxy[0, 2]) / 2
-        cy = start_y + (xyxy[0, 1] + xyxy[0, 3]) / 2
-        semi_major_axis = width / 2
-        semi_minor_axis = height / 2
-        ellipse_area = pi * semi_major_axis * semi_minor_axis  # Calcula el área de la elipse
-        centers.append((cx, cy, segment_id, ellipse_area))
-    return centers
-
-def plot_centers(df, image_path):
-    """
-    Genera un gráfico de dispersión con los centros de los canales de Havers.
-    """
-    plt.figure(figsize=(10, 10))
-    # Cargar la imagen inicial
-    image = plt.imread(image_path)
-    plt.imshow(image, extent=[0, image.shape[1], image.shape[0], 0], alpha=0.6)
-    plt.scatter(df['Center X'], df['Center Y'], c='blue', marker='o', s=10)  # Puntos más pequeños
-    plt.title('Mapa de coordenadas de canales de Havers')
-    plt.xlabel('Center X')
-    plt.ylabel('Center Y')
-    plt.grid(True)
-    plt.gca().invert_yaxis()  # Invertir el eje Y para que coincida con la representación de la imagen
-    
-    # Guardar en archivo físico temporal
-    plot_filename = os.path.join(BASE_DIR, "temp_plot.png")
-    plt.savefig(plot_filename, format='png', dpi=100)
-    plt.close()
-    return plot_filename
-
-def plot_heatmap(df, image_path):
-    """
-    Genera un mapa de calor para visualizar la densidad de canales de Havers.
-    """
-    plt.figure(figsize=(10, 10))
-    # Generar el mapa de calor
-    heatmap, xedges, yedges = np.histogram2d(df['Center X'], df['Center Y'], bins=(100, 100))
-    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-    plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='hot', alpha=0.6)
-    plt.colorbar()
-    # Cargar la imagen inicial con transparencia
-    image = plt.imread(image_path)
-    plt.imshow(image, extent=[0, image.shape[1], image.shape[0], 0], alpha=0.4)
-    plt.title('Mapa de densidad de canales de Havers')
-    plt.xlabel('Center X')
-    plt.ylabel('Center Y')
-    plt.grid(True)
-    plt.gca().invert_yaxis()
-    
-    # Guardar en archivo físico temporal
-    heatmap_filename = os.path.join(BASE_DIR, "temp_heatmap.png")
-    plt.savefig(heatmap_filename, format='png', dpi=100)
-    plt.close()
-    return heatmap_filename
-
-def save_plot(filename, title):
-    """
-    Guarda un gráfico en un archivo.
-    """
-    dest_path = filedialog.asksaveasfilename(
-        defaultextension=".png",
-        filetypes=[("PNG files", "*.png")],
-        title=title
-    )
-    if dest_path and os.path.exists(filename):
-        shutil.copy(filename, dest_path)
-        return True
-    return False
-
-def calculate_distance_matrix(centers_df):
-    """
-    Calcula la distancia media entre los centros de los canales de Havers.
-    """
-    distances = []
-    points = centers_df[['Center X', 'Center Y']].values
-    for i in range(len(points)):
-        for j in range(i + 1, len(points)):
-            dist = np.sqrt(((points[i] - points[j]) ** 2).sum())
-            distances.append(dist)
-    return np.mean(distances) if distances else 0
-
-def show_image(parent, title, image_path, can_save=True, save_title="Guardar Imagen"):
-    """
-    Muestra una imagen en una ventana separada.
-    """
-    window = Toplevel(parent)
-    window.title(title)
-    window.geometry("800x800")
-    window.configure(bg='#001f3f')
-    
-    try:
-        img = Image.open(image_path)
-        img = img.resize((700, 700), Image.LANCZOS)
-        photo = ImageTk.PhotoImage(img)
+            # Procesar el área de manera similar
+            if isinstance(row['Ellipse Area (pixels^2)'], str) and 'tensor' in row['Ellipse Area (pixels^2)']:
+                # Extraer el número entre paréntesis
+                valor = row['Ellipse Area (pixels^2)'].split('(')[1].split(')')[0]
+                area = float(valor)
+            else:
+                area = float(row['Ellipse Area (pixels^2)'])
+                
+            # Determinar a qué cuadrante pertenece
+            cuad_col = x // cuad_width
+            cuad_row = y // cuad_height
+            
+            # Ajustar para asegurar que está dentro de los límites
+            cuad_col = min(2, max(0, cuad_col))
+            cuad_row = min(2, max(0, cuad_row))
+            
+            # Índice del cuadrante (0-8)
+            cuad_idx = cuad_row * 3 + cuad_col
+            
+            # Acumular área en este cuadrante
+            areas_por_cuadrante[cuad_idx] += area
+            
+            # Guardar referencia al canal
+            canales_por_cuadrante[cuad_idx].append((x, y, area))
+        except Exception as e:
+            print(f"Error procesando canal {i}: {e}")
+            continue
         
-        label = Label(window, image=photo, bg='#001f3f')
-        label.image = photo  # Mantener referencia
-        label.pack(padx=20, pady=20, expand=True, fill="both")
+        # Determinar a qué cuadrante pertenece
+        cuad_col = x // cuad_width
+        cuad_row = y // cuad_height
         
-        if can_save:
-            save_button = Button(window, text="Guardar", 
-                              command=lambda: save_plot(image_path, save_title))
-            configure_button(save_button)
-            save_button.pack(side="bottom", pady=10)
+        # Ajustar para asegurar que está dentro de los límites
+        cuad_col = min(2, max(0, cuad_col))
+        cuad_row = min(2, max(0, cuad_row))
         
-        return window
-    except Exception as e:
-        Label(window, text=f"Error: {e}", fg="white", bg='#001f3f', font=("Helvetica", 14)).pack(expand=True)
-        print(f"Error al mostrar imagen {image_path}: {e}")
-        return None
+        # Índice del cuadrante (0-8)
+        cuad_idx = cuad_row * 3 + cuad_col
+        
+        # Acumular área en este cuadrante
+        areas_por_cuadrante[cuad_idx] += area
+        
+        # Guardar referencia al canal
+        canales_por_cuadrante[cuad_idx].append((x, y, area))
+    
+    # Encontrar cuadrante con mayor área
+    cuad_max_area_idx = np.argmax(areas_por_cuadrante)
+    
+    # Imagen para visualización
+    imagen_con_cuadrantes = imagen.copy()
+    
+    # Dibujar líneas de cuadrantes
+    for i in range(1, 3):
+        # Líneas horizontales
+        cv2.line(imagen_con_cuadrantes, (0, i*cuad_height), 
+                 (width, i*cuad_height), (255, 255, 255), 2)
+        # Líneas verticales
+        cv2.line(imagen_con_cuadrantes, (i*cuad_width, 0), 
+                 (i*cuad_width, height), (255, 255, 255), 2)
+    
+    # Marcar cuadrante con mayor área
+    max_row = cuad_max_area_idx // 3
+    max_col = cuad_max_area_idx % 3
+    x1 = max_col * cuad_width
+    y1 = max_row * cuad_height
+    x2 = (max_col + 1) * cuad_width
+    y2 = (max_row + 1) * cuad_height
+    
+    # Dibujar rectángulo semitransparente en el cuadrante con mayor área
+    overlay = imagen_con_cuadrantes.copy()
+    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), -1)
+    cv2.addWeighted(overlay, 0.3, imagen_con_cuadrantes, 0.7, 0, imagen_con_cuadrantes)
+    
+    # Añadir texto con información por cuadrante
+    for i in range(9):
+        row = i // 3
+        col = i % 3
+        text_x = col * cuad_width + 10
+        text_y = row * cuad_height + 30
+        
+        # Texto con área total y número de canales
+        text = f"Area: {areas_por_cuadrante[i]:.1f}"
+        cv2.putText(imagen_con_cuadrantes, text, (text_x, text_y),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        
+        text = f"Canales: {len(canales_por_cuadrante[i])}"
+        cv2.putText(imagen_con_cuadrantes, text, (text_x, text_y + 25),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+    
+    # Guardar imagen final
+    cv2.imwrite(output_path, imagen_con_cuadrantes)
+    
+    return imagen_con_cuadrantes, areas_por_cuadrante, canales_por_cuadrante
 
-def display_results(root, excel_path, plot_filename, heatmap_filename, avg_area, count_havers, avg_distance):
+def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, canales_por_cuadrante):
     """
-    Muestra los resultados del análisis en una interfaz gráfica.
+    Muestra los resultados del análisis por cuadrantes en una interfaz gráfica.
+    
+    Args:
+        root: Ventana raíz de Tkinter
+        imagen_path: Ruta a la imagen con cuadrantes analizados
+        areas_por_cuadrante: Array con áreas por cuadrante
+        canales_por_cuadrante: Lista de canales agrupados por cuadrante
     """
     for widget in root.winfo_children():
         widget.destroy()
-    configure_window(root, "Results")
+    
+    configure_window(root, "Análisis por Cuadrantes")
+    
+    # Crear pestañas
     notebook = ttk.Notebook(root)
     notebook.pack(fill='both', expand=True)
-
-    # Crear pestañas
+    
+    # Pestaña de visualización
     frame1 = Frame(notebook, bg='#001f3f')
     frame2 = Frame(notebook, bg='#001f3f')
-    frame3 = Frame(notebook, bg='#001f3f')
-    notebook.add(frame1, text="Coordinates")
-    notebook.add(frame2, text="Visualization")
-    notebook.add(frame3, text="Analysis")
-
-    # Pestaña de coordenadas
-    text_area = Text(frame1, bg='#001f3f', fg="white", insertbackground="white")
-    text_area.pack(side='left', fill='both', expand=True, padx=20, pady=20)
-    scrollbar = Scrollbar(frame1, command=text_area.yview)
-    scrollbar.pack(side='right', fill='y')
-    text_area.config(yscrollcommand=scrollbar.set)
-
-    # Mostrar contenido del archivo de Excel
+    notebook.add(frame1, text="Visualización")
+    notebook.add(frame2, text="Datos por Cuadrante")
+    
+    # Mostrar imagen
     try:
-        with pd.ExcelFile(excel_path) as xls:
-            df = pd.read_excel(xls)
-            text_area.insert('1.0', df.to_string())
+        img = Image.open(imagen_path)
+        img = img.resize((800, 800), Image.LANCZOS)  # Ajustar tamaño para la visualización
+        img_tk = ImageTk.PhotoImage(img)
+        
+        img_label = Label(frame1, image=img_tk, bg='#001f3f')
+        img_label.image = img_tk  # Mantener referencia
+        img_label.pack(pady=20)
+        
+        # Botón para guardar imagen
+        def guardar_imagen():
+            destino = filedialog.asksaveasfilename(
+                defaultextension=".png",
+                filetypes=[("PNG files", "*.png")],
+                initialfile="analisis_cuadrantes.png")
+            if destino:
+                import shutil
+                shutil.copy(imagen_path, destino)
+                messagebox.showinfo("Éxito", f"Imagen guardada en {destino}")
+                
+        save_button = Button(frame1, text="Guardar Imagen", command=guardar_imagen)
+        configure_button(save_button)
+        save_button.pack(pady=10)
     except Exception as e:
-        text_area.insert('1.0', f"Error al cargar el archivo Excel: {e}")
-
-    # Pestaña de visualización
-    # Usando botones para abrir las imágenes en ventanas separadas
-    def open_plot():
-        show_image(root, "Mapa de coordenadas de canales de Havers", plot_filename, 
-                 True, "Guardar Mapa de Coordenadas")
+        error_label = Label(frame1, text=f"Error al cargar la imagen: {e}", 
+                           fg="white", bg='#001f3f')
+        error_label.pack(pady=20)
     
-    def open_heatmap():
-        show_image(root, "Mapa de densidad de canales de Havers", heatmap_filename, 
-                 True, "Guardar Mapa de Calor")
+    # Mostrar datos por cuadrante
+    text_area = Text(frame2, bg='#001f3f', fg="white", font=("Helvetica", 12))
+    text_area.pack(fill='both', expand=True, padx=20, pady=20)
     
-    plot_button = Button(frame2, text="Ver Mapa de Coordenadas", command=open_plot)
-    configure_button(plot_button)
-    plot_button.pack(pady=30)
+    text_area.insert('1.0', "ANÁLISIS POR CUADRANTES\n\n")
     
-    heatmap_button = Button(frame2, text="Ver Mapa de Calor", command=open_heatmap)
-    configure_button(heatmap_button)
-    heatmap_button.pack(pady=30)
+    # Encontrar cuadrante con mayor área
+    cuad_max_area_idx = np.argmax(areas_por_cuadrante)
     
-    # Botón para abrir Excel
-    def open_excel_file():
-        import os
-        os.startfile(excel_path)
-    
-    excel_button = Button(frame2, text="Abrir Archivo Excel", command=open_excel_file)
-    configure_button(excel_button)
-    excel_button.pack(pady=30)
-
-    # Pestaña de análisis
-    analysis_text = Text(frame3, bg='#001f3f', fg="white", insertbackground="white", font=("Helvetica", 14))
-    analysis_text.pack(fill='both', expand=True, padx=20, pady=20)
-    analysis_text.insert('1.0', f"""
-    Análisis de la imagen:
-    
-    Número de canales de Havers detectados: {count_havers}
-    
-    Área promedio de los canales: {avg_area:.2f} pixels²
-    
-    Distancia media entre canales: {avg_distance:.2f} pixels
-    
-    Los archivos de resultados están guardados en:
-    {excel_path}
-    
-    Para visualizar los mapas, utilice los botones en la pestaña "Visualization".
-    """)
-
-    # Mantener la ventana abierta
-    root.mainloop()
-
-def resize_image_if_too_large(image_path, max_pixels=178956970):
-    """
-    Redimensiona una imagen si es demasiado grande.
-    """
-    print(f"Verificando tamaño de imagen: {image_path}")
-    img = cv2.imread(image_path)
-    if img is None:
-        return False
-    
-    height, width = img.shape[:2]
-    pixels = height * width
-    print(f"Tamaño original: {width}x{height} = {pixels} píxeles")
-    
-    if pixels > max_pixels:
-        # Calcular factor de escala para reducir
-        scale = (max_pixels / pixels) ** 0.5
-        new_width = int(width * scale)
-        new_height = int(height * scale)
-        print(f"Redimensionando a: {new_width}x{new_height}")
+    # Mostrar información por cuadrante
+    for i in range(9):
+        row = i // 3
+        col = i % 3
         
-        # Redimensionar
-        resized = cv2.resize(img, (new_width, new_height))
+        # Destacar el cuadrante con mayor área
+        if i == cuad_max_area_idx:
+            text_area.insert('end', f"CUADRANTE {i+1} (MAYOR DENSIDAD) - Fila {row+1}, Columna {col+1}\n")
+        else:
+            text_area.insert('end', f"CUADRANTE {i+1} - Fila {row+1}, Columna {col+1}\n")
+            
+        text_area.insert('end', f"  Área total: {areas_por_cuadrante[i]:.2f} pixels²\n")
+        text_area.insert('end', f"  Número de canales: {len(canales_por_cuadrante[i])}\n")
         
-        # Guardar versión redimensionada (con un nombre diferente)
-        resized_path = image_path.rsplit('.', 1)[0] + '_resized.' + image_path.rsplit('.', 1)[1]
-        cv2.imwrite(resized_path, resized)
-        print(f"Imagen redimensionada guardada en: {resized_path}")
+        if len(canales_por_cuadrante[i]) > 0:
+            area_promedio = sum(canal[2] for canal in canales_por_cuadrante[i]) / len(canales_por_cuadrante[i])
+            text_area.insert('end', f"  Área promedio por canal: {area_promedio:.2f} pixels²\n")
         
-        return resized_path
+        text_area.insert('end', "\n")
     
-    return image_path
+    # Botón para exportar resultados a Excel
+    def exportar_excel():
+        destino = filedialog.asksaveasfilename(
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            initialfile="resultados_cuadrantes.xlsx")
+        
+        if destino:
+            # Crear DataFrame con resultados
+            data = []
+            for i in range(9):
+                row = i // 3
+                col = i % 3
+                
+                data.append({
+                    'Cuadrante': i+1,
+                    'Fila': row+1,
+                    'Columna': col+1,
+                    'Area Total': areas_por_cuadrante[i],
+                    'Num Canales': len(canales_por_cuadrante[i]),
+                    'Area Promedio': sum(canal[2] for canal in canales_por_cuadrante[i]) / max(1, len(canales_por_cuadrante[i])),
+                    'Mayor Densidad': 'Sí' if i == cuad_max_area_idx else 'No'
+                })
+                
+            df = pd.DataFrame(data)
+            df.to_excel(destino, index=False)
+            messagebox.showinfo("Éxito", f"Datos exportados a {destino}")
+    
+    export_button = Button(frame2, text="Exportar a Excel", command=exportar_excel)
+    configure_button(export_button)
+    export_button.pack(pady=10)
 
 def main():
-    """
-    Función principal del programa.
-    """
-    # Asegurar que los directorios base existan
-    os.makedirs(BASE_DIR, exist_ok=True)
-    
+    """Función principal del programa"""
     # Crear ventana principal
     root = Tk()
     
-    # Selección de imagen
-    image_path = select_image(root)
-    if not image_path:
-        print("No se seleccionó ninguna imagen.")
-        root.destroy()
-        return
+    # Título de la ventana
+    configure_window(root, "Análisis de Canales por Cuadrantes")
     
-    # Imprimir la ruta de la imagen para depuración
-    print(f"Imagen seleccionada: {image_path}")
-    
-    # Verificar que el archivo existe
-    if not os.path.exists(image_path):
-        print(f"ERROR: El archivo {image_path} no existe.")
-        root.destroy()
-        return
-    
-    # Antes de dividir la imagen, verifica su tamaño
-    image_path = resize_image_if_too_large(image_path)
-    if not image_path:
-        print("Error al procesar la imagen.")
-        root.destroy()
-        return
-    
-    # Actualizar la ventana para mostrar el progreso
-    root = Tk()  # Crear una nueva ventana ya que la anterior se cerró
-    configure_window(root, "Processing")
-    Label(root, text="Processing, please wait...", font=("Helvetica", 16), fg="white", bg='#001f3f').pack(expand=True)
-    root.update()
-    
-    confidence_threshold = 0.4
-    
-    try:
-        # Dividir la imagen en segmentos
-        print(f"Dividiendo imagen {image_path} en segmentos...")
-        segment_positions, segment_width, segment_height = divide_and_save_image(image_path, IMAGES_SEGMENTED_DIR)
-        if segment_positions is None:
-            print("Error al dividir la imagen.")
-            root.destroy()
-            return
-        
-        # Cargar modelo YOLO
-        print("Cargando modelo YOLO...")
-        model_path = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\runs\detect\train\weights\best.pt"
-        print(f"Ruta del modelo: {model_path}")
-        
-        # Comprobar si el modelo existe en esta ruta
-        if not os.path.exists(model_path):
-            print(f"Modelo no encontrado en: {model_path}")
-            print("Intentando rutas alternativas...")
-            
-            # Intentar con rutas alternativas
-            alternative_paths = [
-                r"C:\Users\joanb\OneDrive\Escritorio\TFG\workspace\runs\detect\train\weights\best.pt",
-                r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\runs\detect\train13\weights\best.pt",
-                r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\osteona\best.pt"
-            ]
-            
-            for alt_path in alternative_paths:
-                print(f"Comprobando: {alt_path}")
-                if os.path.exists(alt_path):
-                    model_path = alt_path
-                    print(f"Modelo encontrado en: {model_path}")
-                    break
-        
-        if not os.path.exists(model_path):
-            print(f"ERROR: No se encontró el modelo en ninguna de las rutas verificadas.")
-            root.destroy()
-            return
-            
-        model = YOLO(model_path)
-        
-        # Obtener lista de archivos de segmentos
-        segment_files = sorted(
-            [f for f in os.listdir(IMAGES_SEGMENTED_DIR) if f.startswith("segment_") and f.endswith('.png')],
-            key=lambda x: int(x.split('_')[-1].split('.')[0]) if '_' in x and x.split('_')[-1].split('.')[0].isdigit() else 0
+    # Función para iniciar el análisis
+    def iniciar_analisis():
+        # Seleccionar imagen original
+        imagen_original = filedialog.askopenfilename(
+            title="Seleccione la imagen original",
+            filetypes=[("Image files", "*.jpg;*.jpeg;*.png")]
         )
         
-        if not segment_files:
-            print(f"No se encontraron archivos de segmentos en {IMAGES_SEGMENTED_DIR}")
-            root.destroy()
+        if not imagen_original:
             return
             
-        print(f"Se encontraron {len(segment_files)} archivos de segmentos")
+        # Seleccionar archivo Excel con detecciones
+        excel_path = filedialog.askopenfilename(
+            title="Seleccione el archivo Excel con las detecciones",
+            filetypes=[("Excel files", "*.xlsx")]
+        )
         
-        # Lista para almacenar los centros y áreas de las cajas delimitadoras
-        box_centers_and_areas = []
-        
-        # Analizar cada segmento
-        print("Analizando segmentos con el modelo YOLO...")
-        for idx, (start_x, start_y, segment_id) in enumerate(segment_positions):
-            segment_filename = f"segment_{segment_id}.png"
-            segment_path = os.path.join(IMAGES_SEGMENTED_DIR, segment_filename)
-            
-            if not os.path.exists(segment_path):
-                print(f"Advertencia: Archivo de segmento no encontrado: {segment_path}")
-                continue
-                
-            print(f"Analizando segmento {segment_id}: {segment_path}")
-            
-            # Realizar detección con YOLO
-            results = model(segment_path, conf=confidence_threshold)
-            
-            for result in results:
-                boxes = result.boxes
-                print(f"Segmento {segment_id}: Se detectaron {len(boxes)} canales de Havers")
-                centers = calculate_box_centers_and_areas(boxes, start_x, start_y, segment_id)
-                box_centers_and_areas.extend(centers)
-
-                # Guardar imagen con anotaciones
-                annotated_img = result.plot()
-                output_path = os.path.join(OUTPUT_DIR, f"result_{segment_id}.png")
-                
-                # Asegurar que el directorio de salida existe
-                os.makedirs(OUTPUT_DIR, exist_ok=True)
-                
-                cv2.imwrite(output_path, annotated_img)
-        
-        # Si no se detectaron canales
-        if not box_centers_and_areas:
-            print("No se detectaron canales de Havers.")
-            root.destroy()
+        if not excel_path:
             return
+            
+        # Mostrar ventana de progreso
+        progreso = Toplevel(root)
+        configure_window(progreso, "Procesando")
+        Label(progreso, text="Procesando imagen...", font=("Helvetica", 16),
+              fg="white", bg='#001f3f').pack(expand=True)
+        progreso.update()
         
-        print(f"Se detectaron un total de {len(box_centers_and_areas)} canales de Havers")
-        
-        # Crear directorio para resultados si no existe
-        results_dir = os.path.join(BASE_DIR, "results")
-        os.makedirs(results_dir, exist_ok=True)
-        
-        # Generar DataFrame con coordenadas y áreas
-        df = pd.DataFrame(box_centers_and_areas, columns=['Center X', 'Center Y', 'Segment ID', 'Ellipse Area (pixels^2)'])
-        excel_path = os.path.join(results_dir, 'bounding_box_centers.xlsx')
-        
-        df.to_excel(excel_path, index=False)
-        print(f"Centros y áreas de las cajas delimitadoras guardados en {excel_path}")
-        
-        # Generar visualizaciones
-        print("Generando visualizaciones...")
-        plot_filename = plot_centers(df, image_path)
-        heatmap_filename = plot_heatmap(df, image_path)
-        avg_area = df['Ellipse Area (pixels^2)'].mean()
-        count_havers = df.shape[0]
-        avg_distance = calculate_distance_matrix(df)
-        
-        # Mostrar resultados
-        print("Mostrando resultados...")
-        display_results(root, excel_path, plot_filename, heatmap_filename, avg_area, count_havers, avg_distance)
-        
-    except Exception as e:
-        print(f"Error durante la ejecución: {e}")
-        import traceback
-        traceback.print_exc()
-        root.destroy()
-    finally:
-        # Limpiar archivos temporales al finalizar
-        temp_files = [
-            os.path.join(BASE_DIR, "temp_plot.png"),
-            os.path.join(BASE_DIR, "temp_heatmap.png")
-        ]
-        for file in temp_files:
-            if os.path.exists(file):
-                try:
-                    os.remove(file)
-                except:
-                    pass
+        try:
+            # Reconstruir imagen con detecciones
+            imagen_reconstruida_path = "imagen_reconstruida.png"
+            imagen = reconstruir_imagen_con_detecciones(
+                imagen_original, excel_path, imagen_reconstruida_path
+            )
+            
+            # Cargar datos de detecciones
+            df = pd.read_excel(excel_path)
+            
+            # Analizar por cuadrantes
+            imagen_cuadrantes_path = "imagen_cuadrantes.png"
+            imagen_final, areas, canales = analizar_cuadrantes(
+                imagen, df, imagen_cuadrantes_path
+            )
+            
+            # Cerrar ventana de progreso
+            progreso.destroy()
+            
+            # Mostrar resultados
+            visualizar_resultados_cuadrantes(root, imagen_cuadrantes_path, areas, canales)
+            
+        except Exception as e:
+            progreso.destroy()
+            messagebox.showerror("Error", f"Error durante el análisis: {e}")
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Crear botones en la ventana principal
+    titulo = Label(root, text="Análisis de Canales de Havers por Cuadrantes", 
+                  font=("Helvetica", 24), fg="white", bg='#001f3f')
+    titulo.pack(pady=30)
+    
+    descripcion = Label(root, text="Esta aplicación analiza la distribución de canales de Havers por cuadrantes\n"
+                       "y destaca el cuadrante con mayor densidad de canales.",
+                       font=("Helvetica", 14), fg="white", bg='#001f3f')
+    descripcion.pack(pady=20)
+    
+    iniciar_button = Button(root, text="Iniciar Análisis", command=iniciar_analisis)
+    configure_button(iniciar_button)
+    iniciar_button.pack(pady=30)
+    
+    # Iniciar la aplicación
+    root.mainloop()
 
 if __name__ == '__main__':
     main()
