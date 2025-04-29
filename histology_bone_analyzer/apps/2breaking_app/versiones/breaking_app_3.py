@@ -181,15 +181,6 @@ def analizar_cuadrantes(imagen, df, output_path):
     # Encontrar cuadrantes contiguos al de mayor área
     cuadrantes_contiguos = []
     
-    # Definir los índices de los 4 cuadrantes centrales (en una matriz 6x6)
-    # Estos son los cuadrantes (2,2), (2,3), (3,2) y (3,3)
-    cuadrantes_centrales = [
-        2*6 + 2,  # (2,2)
-        2*6 + 3,  # (2,3)
-        3*6 + 2,  # (3,2)
-        3*6 + 3   # (3,3)
-    ]
-    
     # Comprobar los 8 cuadrantes adyacentes (arriba, abajo, izquierda, derecha y diagonales)
     for dr in [-1, 0, 1]:
         for dc in [-1, 0, 1]:
@@ -206,13 +197,11 @@ def analizar_cuadrantes(imagen, df, output_path):
                 # Calcular índice del cuadrante contiguo
                 contiguo_idx = contiguo_row * 6 + contiguo_col
                 
-                # Verificar que no es uno de los 4 cuadrantes centrales
-                if contiguo_idx not in cuadrantes_centrales:
-                    # Calcular densidad (área total / número de canales o 1 para evitar división por cero)
-                    num_canales = max(1, len(canales_por_cuadrante[contiguo_idx]))
-                    densidad = areas_por_cuadrante[contiguo_idx] / num_canales
-                    
-                    cuadrantes_contiguos.append((contiguo_idx, densidad))
+                # Calcular densidad (área total / número de canales o 1 para evitar división por cero)
+                num_canales = max(1, len(canales_por_cuadrante[contiguo_idx]))
+                densidad = areas_por_cuadrante[contiguo_idx] / num_canales
+                
+                cuadrantes_contiguos.append((contiguo_idx, densidad))
     
     # Encontrar el cuadrante contiguo con menor densidad
     if cuadrantes_contiguos:
@@ -268,31 +257,14 @@ def analizar_cuadrantes(imagen, df, output_path):
         text_x = col * cuad_width + 5  # Posición X ajustada
         text_y = row * cuad_height + 15  # Posición Y ajustada
         
-        # Verificar si es un cuadrante central
-        is_central = i in [2*6 + 2, 2*6 + 3, 3*6 + 2, 3*6 + 3]
-        
-        # Colorear el texto diferente para los cuadrantes centrales
-        text_color = (128, 128, 128) if is_central else (255, 255, 255)  # Gris para centrales, blanco para el resto
-        
         # Texto con área total y número de canales (formato condensado)
         text = f"A:{areas_por_cuadrante[i]:.0f}"  # Área redondeada
         cv2.putText(imagen_con_cuadrantes, text, (text_x, text_y),
-                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, 1)  # Grosor reducido
+                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1)  # Grosor reducido
         
         text = f"C:{len(canales_por_cuadrante[i])}"  # Número de canales
         cv2.putText(imagen_con_cuadrantes, text, (text_x, text_y + 15),  # Menos espacio vertical
-                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, 1)  # Grosor reducido
-                   
-        # Para cuadrantes centrales, añadir una marca especial
-        if is_central:
-            # Dibujar un pequeño rectángulo gris semitransparente
-            x1 = col * cuad_width
-            y1 = row * cuad_height
-            x2 = (col + 1) * cuad_width
-            y2 = (row + 1) * cuad_height
-            overlay = imagen_con_cuadrantes.copy()
-            cv2.rectangle(overlay, (x1, y1), (x2, y2), (128, 128, 128), -1)  # Gris (128, 128, 128)
-            cv2.addWeighted(overlay, 0.2, imagen_con_cuadrantes, 0.8, 0, imagen_con_cuadrantes)
+                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1)  # Grosor reducido
     
     # Guardar imagen final
     cv2.imwrite(output_path, imagen_con_cuadrantes)
@@ -381,16 +353,6 @@ def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, can
         menor_label = Label(menor_frame, text="Menor densidad contiguo", fg="white", bg='#000000')
         menor_label.pack(side='left')
         
-        # Leyenda para los cuadrantes centrales
-        central_frame = Frame(leyenda_frame, bg='#000000')
-        central_frame.pack(side='left', padx=20)
-        
-        central_color = Frame(central_frame, bg='#808080', width=20, height=20)
-        central_color.pack(side='left', padx=5)
-        
-        central_label = Label(central_frame, text="Cuadrantes centrales", fg="white", bg='#000000')
-        central_label.pack(side='left')
-        
     except Exception as e:
         error_label = Label(frame1, text=f"Error al cargar la imagen: {e}", 
                            fg="white", bg='#000000')  # Texto blanco, fondo negro
@@ -420,16 +382,11 @@ def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, can
         row = i // 6  # 6 columnas ahora
         col = i % 6
         
-        # Verificar si es un cuadrante central
-        is_central = i in [2*6 + 2, 2*6 + 3, 3*6 + 2, 3*6 + 3]
-        
         # Determinar si es el cuadrante con mayor densidad o el contiguo con menor densidad
         if i == cuad_max_area_idx:
             text_area.insert('end', f"CUADRANTE {i+1} (MAYOR DENSIDAD) - Fila {row+1}, Columna {col+1}\n")
         elif i == cuad_min_contiguo_idx:
             text_area.insert('end', f"CUADRANTE {i+1} (MENOR DENSIDAD CONTIGUO) - Fila {row+1}, Columna {col+1}\n")
-        elif is_central:
-            text_area.insert('end', f"CUADRANTE {i+1} (CENTRAL) - Fila {row+1}, Columna {col+1}\n")
         else:
             text_area.insert('end', f"CUADRANTE {i+1} - Fila {row+1}, Columna {col+1}\n")
             
@@ -467,14 +424,10 @@ def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, can
                     densidad = 0
                 
                 # Determinar tipo de cuadrante
-                is_central = i in [2*6 + 2, 2*6 + 3, 3*6 + 2, 3*6 + 3]
-                
                 if i == cuad_max_area_idx:
                     tipo = "Mayor densidad"
                 elif i == cuad_min_contiguo_idx:
                     tipo = "Menor densidad contiguo"
-                elif is_central:
-                    tipo = "Central"
                 else:
                     tipo = "Normal"
                 

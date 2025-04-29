@@ -2,7 +2,7 @@ import cv2
 import os
 import pandas as pd
 import numpy as np
-from tkinter import Tk, Button, Text, Frame, Label, ttk, filedialog, Toplevel, messagebox, Scrollbar
+from tkinter import Tk, Button, Text, Frame, Label, ttk, filedialog, Toplevel, messagebox
 from PIL import Image, ImageTk
 import matplotlib.pyplot as plt
 
@@ -41,12 +41,6 @@ def reconstruir_imagen_con_detecciones(imagen_original, excel_path, output_path)
     """
     # Cargar la imagen original
     imagen = cv2.imread(imagen_original)
-    
-    # Si la imagen es muy grande, mostrar una advertencia pero continuar
-    height, width = imagen.shape[:2]
-    pixels = height * width
-    if pixels > 89478485:  # Límite de PIL por defecto
-        print(f"Advertencia: Imagen grande ({pixels} píxeles), el procesamiento puede ser lento")
     
     # Cargar datos de detecciones
     df = pd.read_excel(excel_path)
@@ -98,7 +92,7 @@ def reconstruir_imagen_con_detecciones(imagen_original, excel_path, output_path)
 
 def analizar_cuadrantes(imagen, df, output_path):
     """
-    Divide la imagen en 36 cuadrantes (matriz 6x6) y analiza la distribución de canales.
+    Divide la imagen en 9 cuadrantes y analiza la distribución de canales.
     
     Args:
         imagen: Imagen reconstruida con detecciones
@@ -109,19 +103,17 @@ def analizar_cuadrantes(imagen, df, output_path):
         imagen_con_cuadrantes: Imagen con cuadrantes y marcado el de mayor densidad
         areas_por_cuadrante: Array con áreas por cuadrante
         canales_por_cuadrante: Lista de canales agrupados por cuadrante
-        cuad_min_contiguo_idx: Índice del cuadrante contiguo con menor densidad
     """
     # Obtener dimensiones originales de la imagen
     height, width = imagen.shape[:2]
     
     # Calcular dimensiones de cuadrantes manteniendo las proporciones originales
-    # Ahora 6x6 en lugar de 3x3
-    cuad_height = height // 6
-    cuad_width = width // 6
+    cuad_height = height // 3
+    cuad_width = width // 3
     
-    # Crear estructura para almacenar áreas por cuadrante (36 cuadrantes)
-    areas_por_cuadrante = np.zeros(36)
-    canales_por_cuadrante = [[] for _ in range(36)]
+    # Crear estructura para almacenar áreas por cuadrante
+    areas_por_cuadrante = np.zeros(9)
+    canales_por_cuadrante = [[] for _ in range(9)]
     
     # Clasificar cada canal en su cuadrante correspondiente
     for i, row in df.iterrows():
@@ -153,16 +145,16 @@ def analizar_cuadrantes(imagen, df, output_path):
             else:
                 area = float(row['Ellipse Area (pixels^2)'])
                 
-            # Determinar a qué cuadrante pertenece (ahora en matriz 6x6)
+            # Determinar a qué cuadrante pertenece
             cuad_col = x // cuad_width
             cuad_row = y // cuad_height
             
             # Ajustar para asegurar que está dentro de los límites
-            cuad_col = min(5, max(0, cuad_col))
-            cuad_row = min(5, max(0, cuad_row))
+            cuad_col = min(2, max(0, cuad_col))
+            cuad_row = min(2, max(0, cuad_row))
             
-            # Índice del cuadrante (0-35)
-            cuad_idx = cuad_row * 6 + cuad_col
+            # Índice del cuadrante (0-8)
+            cuad_idx = cuad_row * 3 + cuad_col
             
             # Acumular área en este cuadrante
             areas_por_cuadrante[cuad_idx] += area
@@ -175,132 +167,54 @@ def analizar_cuadrantes(imagen, df, output_path):
     
     # Encontrar cuadrante con mayor área
     cuad_max_area_idx = np.argmax(areas_por_cuadrante)
-    max_row = cuad_max_area_idx // 6
-    max_col = cuad_max_area_idx % 6
-    
-    # Encontrar cuadrantes contiguos al de mayor área
-    cuadrantes_contiguos = []
-    
-    # Definir los índices de los 4 cuadrantes centrales (en una matriz 6x6)
-    # Estos son los cuadrantes (2,2), (2,3), (3,2) y (3,3)
-    cuadrantes_centrales = [
-        2*6 + 2,  # (2,2)
-        2*6 + 3,  # (2,3)
-        3*6 + 2,  # (3,2)
-        3*6 + 3   # (3,3)
-    ]
-    
-    # Comprobar los 8 cuadrantes adyacentes (arriba, abajo, izquierda, derecha y diagonales)
-    for dr in [-1, 0, 1]:
-        for dc in [-1, 0, 1]:
-            # Saltar el propio cuadrante
-            if dr == 0 and dc == 0:
-                continue
-                
-            # Calcular fila y columna del cuadrante contiguo
-            contiguo_row = max_row + dr
-            contiguo_col = max_col + dc
-            
-            # Comprobar que está dentro de los límites
-            if 0 <= contiguo_row < 6 and 0 <= contiguo_col < 6:
-                # Calcular índice del cuadrante contiguo
-                contiguo_idx = contiguo_row * 6 + contiguo_col
-                
-                # Verificar que no es uno de los 4 cuadrantes centrales
-                if contiguo_idx not in cuadrantes_centrales:
-                    # Calcular densidad (área total / número de canales o 1 para evitar división por cero)
-                    num_canales = max(1, len(canales_por_cuadrante[contiguo_idx]))
-                    densidad = areas_por_cuadrante[contiguo_idx] / num_canales
-                    
-                    cuadrantes_contiguos.append((contiguo_idx, densidad))
-    
-    # Encontrar el cuadrante contiguo con menor densidad
-    if cuadrantes_contiguos:
-        # Ordenar por densidad (de menor a mayor)
-        cuadrantes_contiguos.sort(key=lambda x: x[1])
-        cuad_min_contiguo_idx = cuadrantes_contiguos[0][0]
-    else:
-        # En caso de que no haya cuadrantes contiguos (poco probable)
-        cuad_min_contiguo_idx = None
     
     # Imagen para visualización (mantener la imagen original sin deformación)
     imagen_con_cuadrantes = imagen.copy()
     
-    # Dibujar líneas de cuadrantes (ahora 5 líneas horizontales y 5 verticales para crear 6x6 cuadrantes)
-    for i in range(1, 6):
+    # Dibujar líneas de cuadrantes
+    for i in range(1, 3):
         # Líneas horizontales
         cv2.line(imagen_con_cuadrantes, (0, i*cuad_height), 
-                 (width, i*cuad_height), (255, 255, 255), 1)  # Grosor reducido
+                 (width, i*cuad_height), (255, 255, 255), 2)
         # Líneas verticales
         cv2.line(imagen_con_cuadrantes, (i*cuad_width, 0), 
-                 (i*cuad_width, height), (255, 255, 255), 1)  # Grosor reducido
+                 (i*cuad_width, height), (255, 255, 255), 2)
     
     # Marcar cuadrante con mayor área
-    x1_max = max_col * cuad_width
-    y1_max = max_row * cuad_height
-    x2_max = (max_col + 1) * cuad_width
-    y2_max = (max_row + 1) * cuad_height
+    max_row = cuad_max_area_idx // 3
+    max_col = cuad_max_area_idx % 3
+    x1 = max_col * cuad_width
+    y1 = max_row * cuad_height
+    x2 = (max_col + 1) * cuad_width
+    y2 = (max_row + 1) * cuad_height
     
-    # Dibujar rectángulo semitransparente en el cuadrante con mayor área (ROJO)
+    # Dibujar rectángulo semitransparente en el cuadrante con mayor área
     overlay = imagen_con_cuadrantes.copy()
-    cv2.rectangle(overlay, (x1_max, y1_max), (x2_max, y2_max), (0, 0, 255), -1)
+    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), -1)
     cv2.addWeighted(overlay, 0.3, imagen_con_cuadrantes, 0.7, 0, imagen_con_cuadrantes)
     
-    # Marcar el cuadrante contiguo con menor densidad
-    if cuad_min_contiguo_idx is not None:
-        min_row = cuad_min_contiguo_idx // 6
-        min_col = cuad_min_contiguo_idx % 6
-        x1_min = min_col * cuad_width
-        y1_min = min_row * cuad_height
-        x2_min = (min_col + 1) * cuad_width
-        y2_min = (min_row + 1) * cuad_height
+    # Añadir texto con información por cuadrante
+    for i in range(9):
+        row = i // 3
+        col = i % 3
+        text_x = col * cuad_width + 10
+        text_y = row * cuad_height + 30
         
-        # Dibujar rectángulo semitransparente en el cuadrante contiguo de menor densidad (AZUL)
-        overlay = imagen_con_cuadrantes.copy()
-        cv2.rectangle(overlay, (x1_min, y1_min), (x2_min, y2_min), (255, 0, 0), -1)
-        cv2.addWeighted(overlay, 0.3, imagen_con_cuadrantes, 0.7, 0, imagen_con_cuadrantes)
-    
-    # Añadir texto con información por cuadrante (texto reducido por espacio limitado)
-    font_scale = 0.4  # Tamaño de fuente más pequeño
-    for i in range(36):
-        row = i // 6
-        col = i % 6
-        text_x = col * cuad_width + 5  # Posición X ajustada
-        text_y = row * cuad_height + 15  # Posición Y ajustada
-        
-        # Verificar si es un cuadrante central
-        is_central = i in [2*6 + 2, 2*6 + 3, 3*6 + 2, 3*6 + 3]
-        
-        # Colorear el texto diferente para los cuadrantes centrales
-        text_color = (128, 128, 128) if is_central else (255, 255, 255)  # Gris para centrales, blanco para el resto
-        
-        # Texto con área total y número de canales (formato condensado)
-        text = f"A:{areas_por_cuadrante[i]:.0f}"  # Área redondeada
+        # Texto con área total y número de canales
+        text = f"Area: {areas_por_cuadrante[i]:.1f}"
         cv2.putText(imagen_con_cuadrantes, text, (text_x, text_y),
-                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, 1)  # Grosor reducido
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         
-        text = f"C:{len(canales_por_cuadrante[i])}"  # Número de canales
-        cv2.putText(imagen_con_cuadrantes, text, (text_x, text_y + 15),  # Menos espacio vertical
-                   cv2.FONT_HERSHEY_SIMPLEX, font_scale, text_color, 1)  # Grosor reducido
-                   
-        # Para cuadrantes centrales, añadir una marca especial
-        if is_central:
-            # Dibujar un pequeño rectángulo gris semitransparente
-            x1 = col * cuad_width
-            y1 = row * cuad_height
-            x2 = (col + 1) * cuad_width
-            y2 = (row + 1) * cuad_height
-            overlay = imagen_con_cuadrantes.copy()
-            cv2.rectangle(overlay, (x1, y1), (x2, y2), (128, 128, 128), -1)  # Gris (128, 128, 128)
-            cv2.addWeighted(overlay, 0.2, imagen_con_cuadrantes, 0.8, 0, imagen_con_cuadrantes)
+        text = f"Canales: {len(canales_por_cuadrante[i])}"
+        cv2.putText(imagen_con_cuadrantes, text, (text_x, text_y + 25),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
     
     # Guardar imagen final
     cv2.imwrite(output_path, imagen_con_cuadrantes)
     
-    # Añadir información del cuadrante contiguo con menor densidad al retorno
-    return imagen_con_cuadrantes, areas_por_cuadrante, canales_por_cuadrante, cuad_min_contiguo_idx
+    return imagen_con_cuadrantes, areas_por_cuadrante, canales_por_cuadrante
 
-def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, canales_por_cuadrante, cuad_min_contiguo_idx=None):
+def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, canales_por_cuadrante):
     """
     Muestra los resultados del análisis por cuadrantes en una interfaz gráfica.
     
@@ -309,7 +223,6 @@ def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, can
         imagen_path: Ruta a la imagen con cuadrantes analizados
         areas_por_cuadrante: Array con áreas por cuadrante
         canales_por_cuadrante: Lista de canales agrupados por cuadrante
-        cuad_min_contiguo_idx: Índice del cuadrante contiguo con menor densidad
     """
     for widget in root.winfo_children():
         widget.destroy()
@@ -356,80 +269,28 @@ def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, can
         save_button = Button(frame1, text="Guardar Imagen", command=guardar_imagen)
         configure_button(save_button)
         save_button.pack(pady=10)
-        
-        # Añadir leyenda
-        leyenda_frame = Frame(frame1, bg='#000000')
-        leyenda_frame.pack(pady=10)
-        
-        # Leyenda para el cuadrante de mayor densidad
-        mayor_frame = Frame(leyenda_frame, bg='#000000')
-        mayor_frame.pack(side='left', padx=20)
-        
-        mayor_color = Frame(mayor_frame, bg='#FF0000', width=20, height=20)
-        mayor_color.pack(side='left', padx=5)
-        
-        mayor_label = Label(mayor_frame, text="Mayor densidad", fg="white", bg='#000000')
-        mayor_label.pack(side='left')
-        
-        # Leyenda para el cuadrante contiguo de menor densidad
-        menor_frame = Frame(leyenda_frame, bg='#000000')
-        menor_frame.pack(side='left', padx=20)
-        
-        menor_color = Frame(menor_frame, bg='#0000FF', width=20, height=20)
-        menor_color.pack(side='left', padx=5)
-        
-        menor_label = Label(menor_frame, text="Menor densidad contiguo", fg="white", bg='#000000')
-        menor_label.pack(side='left')
-        
-        # Leyenda para los cuadrantes centrales
-        central_frame = Frame(leyenda_frame, bg='#000000')
-        central_frame.pack(side='left', padx=20)
-        
-        central_color = Frame(central_frame, bg='#808080', width=20, height=20)
-        central_color.pack(side='left', padx=5)
-        
-        central_label = Label(central_frame, text="Cuadrantes centrales", fg="white", bg='#000000')
-        central_label.pack(side='left')
-        
     except Exception as e:
         error_label = Label(frame1, text=f"Error al cargar la imagen: {e}", 
                            fg="white", bg='#000000')  # Texto blanco, fondo negro
         error_label.pack(pady=20)
     
-    # Crear un contenedor para el texto y la scrollbar
-    text_container = Frame(frame2, bg='#000000')
-    text_container.pack(fill='both', expand=True, padx=20, pady=20)
-    
     # Mostrar datos por cuadrante
-    text_area = Text(text_container, bg='#000000', fg="white", font=("Helvetica", 12))  # Texto blanco, fondo negro
+    text_area = Text(frame2, bg='#000000', fg="white", font=("Helvetica", 12))  # Texto blanco, fondo negro
+    text_area.pack(fill='both', expand=True, padx=20, pady=20)
     
-    # Crear scrollbar para el área de texto
-    scrollbar = Scrollbar(text_container, command=text_area.yview)
-    scrollbar.pack(side='right', fill='y')
-    
-    text_area.pack(side='left', fill='both', expand=True)
-    text_area.config(yscrollcommand=scrollbar.set)
-    
-    text_area.insert('1.0', "ANÁLISIS POR CUADRANTES (MATRIZ 6×6)\n\n")
+    text_area.insert('1.0', "ANÁLISIS POR CUADRANTES\n\n")
     
     # Encontrar cuadrante con mayor área
     cuad_max_area_idx = np.argmax(areas_por_cuadrante)
     
-    # Mostrar información por cuadrante (ahora 36 cuadrantes)
-    for i in range(36):
-        row = i // 6  # 6 columnas ahora
-        col = i % 6
+    # Mostrar información por cuadrante
+    for i in range(9):
+        row = i // 3
+        col = i % 3
         
-        # Verificar si es un cuadrante central
-        is_central = i in [2*6 + 2, 2*6 + 3, 3*6 + 2, 3*6 + 3]
-        
-        # Determinar si es el cuadrante con mayor densidad o el contiguo con menor densidad
+        # Destacar el cuadrante con mayor área
         if i == cuad_max_area_idx:
             text_area.insert('end', f"CUADRANTE {i+1} (MAYOR DENSIDAD) - Fila {row+1}, Columna {col+1}\n")
-        elif i == cuad_min_contiguo_idx:
-            text_area.insert('end', f"CUADRANTE {i+1} (MENOR DENSIDAD CONTIGUO) - Fila {row+1}, Columna {col+1}\n")
-        elif is_central:
-            text_area.insert('end', f"CUADRANTE {i+1} (CENTRAL) - Fila {row+1}, Columna {col+1}\n")
         else:
             text_area.insert('end', f"CUADRANTE {i+1} - Fila {row+1}, Columna {col+1}\n")
             
@@ -439,7 +300,6 @@ def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, can
         if len(canales_por_cuadrante[i]) > 0:
             area_promedio = sum(canal[2] for canal in canales_por_cuadrante[i]) / len(canales_por_cuadrante[i])
             text_area.insert('end', f"  Área promedio por canal: {area_promedio:.2f} pixels²\n")
-            text_area.insert('end', f"  Densidad: {areas_por_cuadrante[i] / len(canales_por_cuadrante[i]):.2f} pixels²/canal\n")
         
         text_area.insert('end', "\n")
     
@@ -453,51 +313,25 @@ def visualizar_resultados_cuadrantes(root, imagen_path, areas_por_cuadrante, can
         if destino:
             # Crear DataFrame con resultados
             data = []
-            for i in range(36):  # Ahora 36 cuadrantes
-                row = i // 6  # 6 columnas
-                col = i % 6
-                
-                # Calcular área promedio (evitando división por cero)
-                num_canales = len(canales_por_cuadrante[i])
-                if num_canales > 0:
-                    area_promedio = sum(canal[2] for canal in canales_por_cuadrante[i]) / num_canales
-                    densidad = areas_por_cuadrante[i] / num_canales
-                else:
-                    area_promedio = 0
-                    densidad = 0
-                
-                # Determinar tipo de cuadrante
-                is_central = i in [2*6 + 2, 2*6 + 3, 3*6 + 2, 3*6 + 3]
-                
-                if i == cuad_max_area_idx:
-                    tipo = "Mayor densidad"
-                elif i == cuad_min_contiguo_idx:
-                    tipo = "Menor densidad contiguo"
-                elif is_central:
-                    tipo = "Central"
-                else:
-                    tipo = "Normal"
+            for i in range(9):
+                row = i // 3
+                col = i % 3
                 
                 data.append({
                     'Cuadrante': i+1,
                     'Fila': row+1,
                     'Columna': col+1,
                     'Area Total': areas_por_cuadrante[i],
-                    'Num Canales': num_canales,
-                    'Area Promedio': area_promedio,
-                    'Densidad': densidad,
-                    'Tipo': tipo
+                    'Num Canales': len(canales_por_cuadrante[i]),
+                    'Area Promedio': sum(canal[2] for canal in canales_por_cuadrante[i]) / max(1, len(canales_por_cuadrante[i])),
+                    'Mayor Densidad': 'Sí' if i == cuad_max_area_idx else 'No'
                 })
                 
             df = pd.DataFrame(data)
             df.to_excel(destino, index=False)
             messagebox.showinfo("Éxito", f"Datos exportados a {destino}")
     
-    # Botón de exportación en un frame separado para que siempre sea visible
-    export_frame = Frame(frame2, bg='#000000')
-    export_frame.pack(side='bottom', fill='x', pady=10)
-    
-    export_button = Button(export_frame, text="Exportar a Excel", command=exportar_excel)
+    export_button = Button(frame2, text="Exportar a Excel", command=exportar_excel)
     configure_button(export_button)
     export_button.pack(pady=10)
 
@@ -505,16 +339,6 @@ def main():
     """Función principal del programa"""
     # Crear ventana principal
     root = Tk()
-    
-    # Definir rutas base para almacenar resultados
-    results_dir = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\histology_bone_analyzer\data\sample_results\breaking_app"
-    
-    # Crear la carpeta si no existe
-    os.makedirs(results_dir, exist_ok=True)
-    
-    # Ignorar advertencias de PIL sobre imágenes grandes
-    # Esto evita el error por DecompressionBombWarning
-    Image.MAX_IMAGE_PIXELS = None  # Deshabilitar el límite de tamaño de imagen
     
     # Título de la ventana
     configure_window(root, "Análisis de Canales por Cuadrantes")
@@ -547,11 +371,8 @@ def main():
         progreso.update()
         
         try:
-            # Definir rutas para los archivos de resultados
-            imagen_reconstruida_path = os.path.join(results_dir, "imagen_reconstruida.png")
-            imagen_cuadrantes_path = os.path.join(results_dir, "imagen_cuadrantes.png")
-            
             # Reconstruir imagen con detecciones
+            imagen_reconstruida_path = "imagen_reconstruida.png"
             imagen = reconstruir_imagen_con_detecciones(
                 imagen_original, excel_path, imagen_reconstruida_path
             )
@@ -560,7 +381,8 @@ def main():
             df = pd.read_excel(excel_path)
             
             # Analizar por cuadrantes
-            imagen_final, areas, canales, cuad_min_contiguo_idx = analizar_cuadrantes(
+            imagen_cuadrantes_path = "imagen_cuadrantes.png"
+            imagen_final, areas, canales = analizar_cuadrantes(
                 imagen, df, imagen_cuadrantes_path
             )
             
@@ -568,7 +390,7 @@ def main():
             progreso.destroy()
             
             # Mostrar resultados
-            visualizar_resultados_cuadrantes(root, imagen_cuadrantes_path, areas, canales, cuad_min_contiguo_idx)
+            visualizar_resultados_cuadrantes(root, imagen_cuadrantes_path, areas, canales)
             
         except Exception as e:
             progreso.destroy()
@@ -582,7 +404,7 @@ def main():
                   font=("Helvetica", 24), fg="white", bg='#000000')  # Texto blanco, fondo negro
     titulo.pack(pady=30)
     
-    descripcion = Label(root, text="Esta aplicación analiza la distribución de canales de Havers en una matriz 6×6 (36 cuadrantes)\n"
+    descripcion = Label(root, text="Esta aplicación analiza la distribución de canales de Havers por cuadrantes\n"
                        "y destaca el cuadrante con mayor densidad de canales.",
                        font=("Helvetica", 14), fg="white", bg='#000000')  # Texto blanco, fondo negro
     descripcion.pack(pady=20)
