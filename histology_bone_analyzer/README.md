@@ -1,4 +1,4 @@
-# Phygital Human Bone - Análisis de Canales de Havers
+# Phygital Human Bone - Histology Bone Analyzer
 
 ## Resumen General del Proyecto
 
@@ -6,34 +6,38 @@ Este proyecto se centra en el desarrollo de herramientas de software para analiz
 
 ## Estructura del Repositorio
 
-El repositorio contiene varios componentes principales:
-
-### Directorios Principales:
+El repositorio está organizado de la siguiente manera:
 
 ```
-histology_bone_analyzer/
-├── apps/                      # Aplicaciones principales
-│   ├── 1detection_app/        # Detección de canales de Havers
-│   │   ├── detection_app.py   # Versión actual
-│   │   └── old_versions/      # Versiones anteriores
-│   ├── 2breaking_app/         # Análisis por cuadrantes
-│   │   └── breaking_app.py
-│   └── 3ditribution_app/      # Generación de distribuciones
-│       └── distribution_app.py
-├── docs/                      # Documentación del proyecto
-│   └── user_manuals/          # Manuales de usuario
-├── scripts/                   # Scripts de utilidad
-│   ├── check_gpu.py           # Verificación de disponibilidad de GPU
-│   ├── topng5mb.py            # Conversión de imágenes TIF a PNG
-│   └── other_scripts/         # Scripts adicionales
-└── README.md                  # Este archivo
+workspace_tfg/
+├── histology_bone_analyzer/         # Proyecto principal de análisis histológico
+│   ├── apps/                        # Aplicaciones principales
+│   │   ├── 1detection_app/          # Aplicación de detección de canales
+│   │   │   ├── detection_app.py     # Versión actual
+│   │   │   └── old_versions/        # Versiones anteriores (iteraciones 1-3)
+│   │   ├── 2breaking_app/           # Aplicación de análisis por cuadrantes
+│   │   │   └── breaking_app.py      # Versión actual
+│   │   └── 3ditribution_app/        # Aplicación de distribución para Grasshopper
+│   │       └── distribution_app.py  # Versión actual
+│   ├── scripts/                     # Scripts de utilidad
+│   │   ├── check_gpu.py             # Verificación de disponibilidad de GPU
+│   │   ├── topng5mb.py              # Conversión de imágenes TIF a PNG
+│   │   ├── tinker_check.py          # Prueba de funcionalidad de Tkinter
+│   │   └── imagetored.py            # Conversión de tonos azules a rojos
+│   ├── docs/                        # Documentación
+│   │   └── user_manuals/            # Manuales de usuario detallados
+│   └── comandos anaconda.txt        # Guía de comandos de Anaconda
+├── osteona/                         # Modelos entrenados y materiales relacionados
+├── All_img_related/                 # Imágenes y resultados de análisis
+├── runs/                            # Registros de ejecuciones de entrenamiento
+└── start_project.bat                # Script de inicio rápido
 ```
 
 ## Componentes Principales
 
 El proyecto consta de tres aplicaciones principales:
 
-### 1. Detection App (fixed-phygital-code.py)
+### 1. Detection App (apps/1detection_app/detection_app.py)
 
 Aplicación para la detección automática de canales de Havers utilizando un modelo YOLO entrenado:
 
@@ -50,8 +54,10 @@ Aplicación para la detección automática de canales de Havers utilizando un mo
   - `calculate_box_centers_and_areas`: Calcula coordenadas y áreas de canales
   - `plot_centers` y `plot_heatmap`: Generan visualizaciones de resultados
   - `calculate_distance_matrix`: Calcula la distancia media entre canales
+  - `resize_image_if_too_large`: Redimensiona imágenes que superan cierto tamaño
+  - `show_results_simple`: Presenta los resultados a través de la interfaz gráfica
 
-### 2. Breaking App (cuadrantes-analyzer.py)
+### 2. Breaking App (apps/2breaking_app/breaking_app.py)
 
 Herramienta complementaria que analiza la distribución espacial de los canales dividiendo la imagen en nueve cuadrantes:
 
@@ -65,9 +71,9 @@ Herramienta complementaria que analiza la distribución espacial de los canales 
 - **Principales funciones**:
   - `reconstruir_imagen_con_detecciones`: Visualiza canales en la imagen original
   - `analizar_cuadrantes`: Divide en 9 cuadrantes e identifica el de mayor densidad
-  - `visualizar_resultados_cuadrantes`: Presenta resultados en una interfaz gráfica
+  - `visualizar_resultados_cuadrantes`: Presenta resultados en una interfaz gráfica con pestañas
 
-### 3. Distribution App
+### 3. Distribution App (apps/3ditribution_app/distribution_app.py)
 
 Aplicación para generar distribuciones parametrizadas de osteonas para diferentes secciones del fémur:
 
@@ -78,6 +84,22 @@ Aplicación para generar distribuciones parametrizadas de osteonas para diferent
   - Exportación de datos para integración con Grasshopper
   - Visualización de la distribución generada
 
+- **Principales clases y funciones**:
+  - `FemurOsteonaDistributor`: Clase principal que maneja toda la funcionalidad
+  - `calculate`: Método para generar la distribución basada en parámetros
+  - `generate_osteona_distribution`: Genera la distribución específica de osteonas
+  - `update_visualization`: Actualiza las visualizaciones gráficas
+  - `export_data`: Exporta los datos generados en diferentes formatos
+
+## Scripts de Utilidad
+
+El proyecto incluye varios scripts útiles para tareas complementarias:
+
+- **topng5mb.py**: Convierte imágenes TIF a formato PNG optimizado para el análisis
+- **check_gpu.py**: Verifica la disponibilidad de GPU y CUDA para optimizar el rendimiento
+- **tinker_check.py**: Prueba la funcionalidad de visualización con Tkinter
+- **imagetored.py**: Convierte tonos azules a rojos en imágenes (útil para matrices de confusión)
+
 ## Tecnologías Utilizadas
 
 - **Lenguaje**: Python como lenguaje de programación principal
@@ -86,6 +108,7 @@ Aplicación para generar distribuciones parametrizadas de osteonas para diferent
 - **Análisis de datos**: Pandas y NumPy
 - **Visualización**: Matplotlib para generación de gráficos y mapas de calor
 - **Interfaz gráfica**: Tkinter para crear una GUI amigable
+- **Gestión de entorno**: Anaconda para gestión de dependencias y entornos virtuales
 
 ## Enfoque de Machine Learning
 
@@ -97,6 +120,7 @@ Aplicación para generar distribuciones parametrizadas de osteonas para diferent
   - Tamaño de imagen: 640x640
   - Threshold de confianza: 0.4
 - El código divide las imágenes grandes en 150 segmentos (15×10) para mejorar la precisión de detección
+- Los modelos entrenados se almacenan en la carpeta `runs/detect/train/weights/`
 
 ## Flujo de Trabajo Completo
 
@@ -105,14 +129,24 @@ Aplicación para generar distribuciones parametrizadas de osteonas para diferent
 3. **Detección**: Se aplica el modelo YOLO para identificar canales de Havers
 4. **Análisis**: Se calculan estadísticas relevantes (conteo, áreas, distancias)
 5. **Visualización**: Se generan gráficos y mapas de calor para facilitar la interpretación
-6. **Análisis espacial**: Se estudia la distribución por cuadrantes (opcional)
-7. **Generación paramétrica**: Creación de distribuciones realistas (opcional)
+6. **Análisis espacial**: Se estudia la distribución por cuadrantes (opcional con Breaking App)
+7. **Generación paramétrica**: Creación de distribuciones realistas (opcional con Distribution App)
 8. **Integración con Grasshopper**: Uso de los datos para modelado 3D (opcional)
+
+## Inicio Rápido
+
+El repositorio incluye un archivo `start_project.bat` que facilita el inicio rápido del entorno de desarrollo:
+
+1. Ejecute `start_project.bat` (para Windows)
+2. El script activará el entorno Anaconda apropiado
+3. Abrirá Visual Studio Code en el directorio del proyecto
+4. Abrirá una terminal con el entorno activado
 
 ## Requisitos del Sistema
 
 ### Software
 - Python 3.7 o superior
+- Anaconda (recomendado)
 - Bibliotecas requeridas:
   - opencv-python (cv2)
   - numpy
@@ -131,8 +165,8 @@ Aplicación para generar distribuciones parametrizadas de osteonas para diferent
 
 1. **Clonar el repositorio**:
    ```
-   git clone https://github.com/username/histology_bone_analyzer.git
-   cd histology_bone_analyzer
+   git clone https://github.com/joan-bl/workspace_tfg.git
+   cd workspace_tfg
    ```
 
 2. **Configurar entorno Anaconda** (recomendado):
@@ -146,35 +180,51 @@ Aplicación para generar distribuciones parametrizadas de osteonas para diferent
    pip install opencv-python numpy pandas matplotlib pillow ultralytics torch
    ```
 
-4. **Ejecutar la aplicación deseada**:
+4. **Verificar disponibilidad de GPU** (opcional):
+   ```
+   python histology_bone_analyzer/scripts/check_gpu.py
+   ```
+
+5. **Ejecutar la aplicación deseada**:
    ```
    # Para Detection App
-   python apps/1detection_app/detection_app.py
+   python histology_bone_analyzer/apps/1detection_app/detection_app.py
    
    # Para Breaking App
-   python apps/2breaking_app/breaking_app.py
+   python histology_bone_analyzer/apps/2breaking_app/breaking_app.py
    
    # Para Distribution App
-   python apps/3ditribution_app/distribution_app.py
+   python histology_bone_analyzer/apps/3ditribution_app/distribution_app.py
    ```
 
 ## Datos de Entrada/Salida
 
 ### Entrada:
 - Imágenes de microtomografía CT en formato JPG, JPEG o PNG
+- Para imágenes TIF, utilizar primero el script `topng5mb.py` para convertirlas
 
 ### Salida:
 - Archivo Excel con coordenadas y áreas de los canales detectados
 - Visualizaciones gráficas (mapa de coordenadas, mapa de calor)
-- Imagen con cuadrantes analizados (opcional)
+- Imagen con cuadrantes analizados (opcional con Breaking App)
 - Estadísticas por cuadrante (opcional)
-- Datos paramétricos para Grasshopper (opcional)
+- Datos paramétricos para Grasshopper (opcional con Distribution App)
+
+## Guía de Uso del Entorno Anaconda
+
+El archivo `comandos anaconda.txt` proporciona instrucciones detalladas para:
+- Verificar entornos instalados (`conda env list`)
+- Activar el entorno (`conda activate osteona`)
+- Desactivar el entorno (`conda deactivate`)
+- Instalar librerías (`conda install` o `pip install`)
+- Generar archivos de requisitos (`pip freeze > requirements.txt`)
 
 ## Limitaciones Actuales
 
 - El rendimiento óptimo se obtiene con imágenes de microtomografía CT de alta calidad
 - Imágenes muy grandes pueden requerir redimensionamiento
 - La precisión de detección actual está en aproximadamente 80%
+- Las detecciones pueden requerir ajuste manual en imágenes con contraste bajo
 
 ## Uso Recomendado
 
@@ -199,6 +249,7 @@ El objetivo de toda esta investigación es crear modelos sintéticos de hueso qu
 - Desarrollo de análisis de patrones de fractura
 - Integración directa con software de CAD y modelado 3D
 - Expansión para analizar otros tipos de huesos además del fémur
+- Incorporación de análisis estadístico avanzado para correlacionar distribución y propiedades mecánicas
 
 ## Autores y Contribuciones
 
