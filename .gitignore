@@ -1,6 +1,5 @@
 # Carpetas a ignorar
-All_img_related/
-runs/
-detection_app/Database/
+Models/
+histology_bone_analyzer/data
 
 detection_app/imagen_reconstruida.png
