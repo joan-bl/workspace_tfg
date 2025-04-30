@@ -19,7 +19,7 @@ Detection App es una aplicación Python diseñada para la detección, medición 
   - Mapa de coordenadas con superposición sobre la imagen original
   - Mapa de calor de densidad de canales
 - **Exportación de datos** a formato Excel para análisis posterior
-- **Interfaz gráfica intuitiva** desarrollada con Tkinter
+- **Interfaz gráfica moderna** con tema visual corporativo (negro/rojo)
 
 ## Estructura del Código
 
@@ -27,21 +27,24 @@ El archivo `detection_app.py` está organizado en módulos funcionales:
 
 ```
 detection_app.py
-├── Configuración de variables globales y rutas
+├── Definición de constantes y rutas
 ├── Funciones de interfaz gráfica
-│   ├── configure_window()
-│   ├── configure_button()
-│   ├── select_image()
-│   └── show_results_simple()
+│   ├── configure_window() - Configura apariencia visual de ventanas
+│   ├── configure_button() - Aplica estilo a botones
+│   ├── select_image_in_window() - Maneja selección de imágenes
+│   └── show_results() - Presenta resultados al usuario
 ├── Funciones de procesamiento de imágenes
-│   ├── divide_and_save_image()
-│   └── resize_image_if_too_large()
+│   ├── divide_and_save_image() - Divide imagen en segmentos
+│   ├── resize_image_if_too_large() - Redimensiona imágenes grandes
+│   └── process_image_segments() - Procesa segmentos con YOLO
 ├── Funciones de análisis
-│   ├── calculate_box_centers_and_areas()
-│   └── calculate_distance_matrix()
+│   ├── calculate_box_centers_and_areas() - Calcula métricas para detecciones
+│   ├── calculate_distance_matrix() - Calcula distancias entre canales
+│   └── save_results_to_excel() - Exporta resultados a Excel
 ├── Funciones de visualización
-│   ├── plot_centers()
-│   └── plot_heatmap()
+│   ├── plot_centers() - Genera mapa de coordenadas
+│   ├── plot_heatmap() - Genera mapa de calor
+│   └── generate_visualizations() - Coordina visualizaciones
 └── Función principal main()
 ```
 
@@ -67,7 +70,7 @@ detection_app.py
    - Cada segmento se guarda temporalmente para su procesamiento individual
 
 3. **Detección con YOLO**:
-   - Se carga el modelo YOLO pre-entrenado desde una ubicación predefinida
+   - Se carga el modelo YOLO pre-entrenado
    - Cada segmento se analiza con el modelo con un umbral de confianza de 0.4
    - Las detecciones se recopilan, registrando sus posiciones absolutas en la imagen original
 
@@ -82,125 +85,38 @@ detection_app.py
      - Distancia media entre canales vecinos
 
 5. **Generación de Visualizaciones**:
-   - **Mapa de coordenadas**: Gráfico de dispersión que muestra la ubicación de cada canal sobre la imagen original
+   - **Mapa de coordenadas**: Gráfico de dispersión que muestra la ubicación de cada canal
    - **Mapa de calor**: Visualización de la densidad de canales a lo largo de la imagen
 
 6. **Presentación de Resultados**:
-   - Los datos se exportan a un archivo Excel
+   - Los datos se exportan a un archivo Excel (con copia de seguridad)
    - Las visualizaciones se guardan como archivos PNG
-   - La interfaz muestra estadísticas clave y opciones para abrir los archivos generados
+   - La interfaz muestra estadísticas clave y botones para acceder a los archivos generados
 
-## Detalles de Implementación
+## Estructura de Carpetas
 
-### Segmentación de Imágenes
+La aplicación genera y utiliza las siguientes carpetas:
 
-La función `divide_and_save_image()` divide la imagen en segmentos más pequeños para:
-- Mejorar el rendimiento de detección
-- Permitir el procesamiento de imágenes de alta resolución
-- Aumentar la precisión en la identificación de estructuras pequeñas
-
-Código clave:
-```python
-def divide_and_save_image(image_path, output_dir, num_segments=150):
-    # Configuración de la división
-    cols = 15
-    rows = ceil(num_segments / cols)
-    segment_height = image.shape[0] // rows
-    segment_width = image.shape[1] // cols
-    
-    # Proceso de división y guardado
-    for i in range(rows):
-        for j in range(cols):
-            start_y = i * segment_height
-            end_y = start_y + segment_height if i < rows - 1 else image.shape[0]
-            start_x = j * segment_width
-            end_x = start_x + segment_width if j < cols - 1 else image.shape[1]
-            segment = image[start_y:end_y, start_x:end_x]
-            # Guardar segmento...
+```
+histology_bone_analyzer\
+├── data\
+│   ├── sample_results\
+│   │   └── detection_app\
+│   │       ├── images_segmented\        # Segmentos de la imagen original
+│   │       ├── segmented_results\       # Segmentos con detecciones marcadas
+│   │       ├── results\                 # Visualizaciones (mapas)
+│   │       └── excel\                   # Archivo Excel con datos
+│   └── sample_images\                   # Imágenes reconstruidas
+└── docs\
+    └── technical\                       # Copia de seguridad de datos
 ```
 
-### Detección con YOLO
+## Mejoras de Interfaz
 
-El modelo YOLO (You Only Look Once) es un sistema de detección de objetos en tiempo real. En esta aplicación:
-- Se utiliza un modelo específicamente entrenado para identificar canales de Havers
-- Cada segmento se procesa individualmente con el modelo
-- Las detecciones se transforman a coordenadas absolutas en la imagen original
-
-Código clave:
-```python
-# Cargar modelo YOLO
-model = YOLO(model_path)
-
-# Procesar cada segmento
-for segment_path in segment_paths:
-    results = model(segment_path, conf=confidence_threshold)
-    
-    for result in results:
-        boxes = result.boxes
-        centers = calculate_box_centers_and_areas(boxes, start_x, start_y, segment_id)
-        box_centers_and_areas.extend(centers)
-```
-
-### Cálculo de Áreas y Distancias
-
-Los canales de Havers se modelan como elipses para calcular sus áreas:
-
-```python
-def calculate_box_centers_and_areas(boxes, start_x, start_y, segment_id):
-    centers = []
-    for box in boxes:
-        xyxy = box.xyxy.clone().detach().cpu().view(1, 4)
-        width = xyxy[0, 2] - xyxy[0, 0]
-        height = xyxy[0, 3] - xyxy[0, 1]
-        cx = start_x + (xyxy[0, 0] + xyxy[0, 2]) / 2
-        cy = start_y + (xyxy[0, 1] + xyxy[0, 3]) / 2
-        semi_major_axis = width / 2
-        semi_minor_axis = height / 2
-        ellipse_area = pi * semi_major_axis * semi_minor_axis
-        centers.append((cx, cy, segment_id, ellipse_area))
-    return centers
-```
-
-La distancia media entre canales se calcula usando la fórmula euclidiana:
-
-```python
-def calculate_distance_matrix(centers_df):
-    distances = []
-    points = centers_df[['Center X', 'Center Y']].values
-    for i in range(len(points)):
-        for j in range(i + 1, len(points)):
-            dist = np.sqrt(((points[i] - points[j]) ** 2).sum())
-            distances.append(dist)
-    return np.mean(distances) if distances else 0
-```
-
-### Visualizaciones
-
-La aplicación genera dos tipos principales de visualizaciones:
-
-1. **Mapa de coordenadas** (`plot_centers()`): Muestra la ubicación exacta de cada canal como puntos sobre la imagen original, permitiendo ver la distribución espacial.
-
-2. **Mapa de calor** (`plot_heatmap()`): Utiliza histogramas bidimensionales para visualizar áreas de mayor concentración de canales, resaltando regiones de alta densidad.
-
-## Configuración y Personalización
-
-La aplicación permite ajustar varios parámetros para adaptarse a diferentes necesidades:
-
-- **Umbral de confianza** (`confidence_threshold = 0.4`): Controla la sensibilidad de la detección. Valores más bajos detectan más canales pero pueden incluir falsos positivos.
-
-- **Número de segmentos** (`num_segments = 150`): Determina la granularidad de la segmentación. Más segmentos pueden mejorar la precisión pero aumentan el tiempo de procesamiento.
-
-- **Tamaño máximo de imagen** (`max_pixels = 178956970`): Limita el tamaño de las imágenes para evitar problemas de memoria. Las imágenes mayores se redimensionan automáticamente.
-
-## Integración con Otras Herramientas
-
-Detection App genera archivos que pueden ser utilizados por otras aplicaciones del proyecto:
-
-- **Archivo Excel**: Contiene datos detallados de cada canal detectado, compatible con la Breaking App para análisis por cuadrantes.
-
-- **Imágenes anotadas**: Los segmentos con las detecciones marcadas pueden usarse para validación manual o entrenamiento adicional.
-
-- **Visualizaciones**: Los mapas generados pueden incorporarse en informes o presentaciones.
+- **Tema visual moderno**: Fondo negro con botones rojos y texto blanco
+- **Interfaz centrada**: La ventana se coloca automáticamente en el centro de la pantalla
+- **Ventanas redimensionables**: La aplicación permite ajustar el tamaño de las ventanas
+- **Diseño responsivo**: Los elementos se adaptan al tamaño de la ventana
 
 ## Requisitos
 
@@ -243,22 +159,20 @@ Detection App genera archivos que pueden ser utilizados por otras aplicaciones d
 - Implementación de técnicas de data augmentation para mejorar el entrenamiento
 - Optimización del modelo para alcanzar 85%+ de precisión
 - Integración de análisis de laminillas y otras estructuras óseas
-- Interfaz mejorada con opciones de configuración accesibles al usuario
+- Incorporación de detección de patrones de fractura
 
-## Contribuir
+## Integración con Breaking App
 
-Si desea contribuir al desarrollo de Detection App:
-
-1. Bifurque el repositorio
-2. Cree una rama para su característica (`git checkout -b feature/amazing-feature`)
-3. Confirme sus cambios (`git commit -m 'Add some amazing feature'`)
-4. Envíe a la rama (`git push origin feature/amazing-feature`)
-5. Abra una Pull Request
+Los resultados generados por Detection App pueden ser utilizados directamente por Breaking App para realizar un análisis por cuadrantes, identificando zonas de mayor densidad de canales y proporcionando estadísticas específicas por región.
 
 ## Autores
 
-- Joan Blanch Jiménez - Investigador principal y desarrollador
+- Joan Blanch Jiménez - Desarrollador principal
 - Equipo del proyecto Phygital Human Bone
+
+## Repositorio
+
+[https://github.com/joan-bl/workspace_tfg](https://github.com/joan-bl/workspace_tfg)
 
 ## Licencia
 
