@@ -8,6 +8,7 @@ import os
 import json
 from PIL import Image, ImageTk
 import random
+from datetime import datetime
 
 class FemurOsteonaDistributor:
     def __init__(self, root):
