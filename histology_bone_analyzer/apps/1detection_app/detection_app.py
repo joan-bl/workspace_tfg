@@ -279,7 +279,7 @@ def calculate_distance_matrix(centers_df):
 
 def plot_centers(df, image_path):
     """Genera un gráfico de dispersión con los centros de los canales de Havers."""
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(16, 16))
     # Cargar la imagen inicial
     image = plt.imread(image_path)
     plt.imshow(image, extent=[0, image.shape[1], image.shape[0], 0], alpha=0.6)
@@ -292,13 +292,13 @@ def plot_centers(df, image_path):
     
     # Guardar en archivo físico
     plot_filename = os.path.join(RESULTS_DIR, "mapa_coordenadas.png")
-    plt.savefig(plot_filename, format='png', dpi=100)
+    plt.savefig(plot_filename, format='png', dpi=600, bbox_inches='tight')
     plt.close()
     return plot_filename
 
 def plot_heatmap(df, image_path):
     """Genera un mapa de calor para visualizar la densidad de canales de Havers."""
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(16, 16))
     # Generar el mapa de calor
     heatmap, xedges, yedges = np.histogram2d(df['Center X'], df['Center Y'], bins=(100, 100))
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
@@ -315,7 +315,7 @@ def plot_heatmap(df, image_path):
     
     # Guardar en archivo físico
     heatmap_filename = os.path.join(RESULTS_DIR, "mapa_calor.png")
-    plt.savefig(heatmap_filename, format='png', dpi=100)
+    plt.savefig(heatmap_filename, format='png', dpi=600, bbox_inches='tight')
     plt.close()
     return heatmap_filename
 
