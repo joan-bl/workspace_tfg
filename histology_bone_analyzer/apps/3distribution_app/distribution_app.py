@@ -633,12 +633,20 @@ class FemurOsteonaDistributor:
             if format_type == "csv":
                 # Convertir a DataFrame y guardar como CSV
                 df = pd.DataFrame(self.distribution_data)
+                
+                # Ordenar el DataFrame por position_z_cm de menor a mayor
+                df = df.sort_values(by='position_z_cm', ascending=True)
+
+                # Guardar como CSV
                 df.to_csv(file_path, index=False)
             else:  # JSON
+                # Ordenar la lista de osteonas por position_z_cm
+                sorted_data = sorted(self.distribution_data, key=lambda x: x['position_z_cm'])
+
                 # Guardar como JSON
                 data = {
                     "femur_info": self.sections_data,
-                    "osteonas": self.distribution_data
+                    "osteonas": sorted_data  # Usar la lista ordenada
                 }
                 
                 with open(file_path, 'w') as f:
