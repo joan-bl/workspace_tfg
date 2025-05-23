@@ -43,8 +43,6 @@ La aplicación está organizada en tres pestañas principales:
 
 ### 1. Configuración de Parámetros
 
-![Pestaña de Parámetros](https://example.com/parametros.png)
-
 #### 1.1 Parámetros Generales
 
 En la sección superior, configure:
@@ -74,8 +72,6 @@ Después de configurar todos los parámetros, haga clic en el botón **"Calcular
 
 ### 2. Visualización de Resultados
 
-![Pestaña de Visualización](https://example.com/visualizacion.png)
-
 La pestaña de visualización muestra dos gráficos:
 
 - **Gráfico Izquierdo**: Perfil del fémur con códigos de colores para cada sección
@@ -90,8 +86,6 @@ La pestaña de visualización muestra dos gráficos:
 - **Guardar Imagen**: Guarda los gráficos como archivo PNG, JPEG o PDF
 
 ### 3. Exportación de Datos
-
-![Pestaña de Exportación](https://example.com/exportacion.png)
 
 La pestaña de exportación ofrece varias opciones para guardar los resultados:
 
@@ -133,8 +127,6 @@ Para cada osteona, utilice:
 - `size_um` para determinar el diámetro de la osteona
 
 ### Ejemplo de Definición en Grasshopper
-
-![Ejemplo Grasshopper](https://example.com/grasshopper_example.png)
 
 1. Importe el CSV con el componente "Read File"
 2. Divida las líneas con el componente "Split Text" (separador: nueva línea)

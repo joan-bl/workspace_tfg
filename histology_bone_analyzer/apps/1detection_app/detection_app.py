@@ -193,7 +193,7 @@ def divide_and_save_image(image_path, output_dir, num_segments=150):
 def find_model_path():
     """Busca la ruta del modelo YOLO en diferentes ubicaciones posibles."""
     # Ruta principal donde debería estar el modelo
-    main_path = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\histology_bone_analyzer\models\best.pt"
+    main_path = r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\histology_bone_analyzer\models\weights.pt"
     
     # Si existe, retornarlo directamente
     if os.path.exists(main_path):
@@ -201,9 +201,9 @@ def find_model_path():
         
     # Rutas alternativas a revisar
     alternative_paths = [
-        r"C:\Users\joanb\OneDrive\Escritorio\TFG\workspace\runs\detect\train\weights\best.pt",
-        r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\runs\detect\train13\weights\best.pt",
-        r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\osteona\best.pt"
+        r"C:\Users\joanb\OneDrive\Escritorio\TFG\workspace\runs\detect\train\weights\weights.pt",
+        r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\runs\detect\train13\weights\weights.pt",
+        r"C:\Users\joanb\OneDrive\Escritorio\TFG\Workspace_tfg\osteona\weights.pt"
     ]
     
     # Revisar cada ruta alternativa

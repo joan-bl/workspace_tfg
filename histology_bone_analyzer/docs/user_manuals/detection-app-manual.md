@@ -51,8 +51,6 @@ Detection App es una aplicación para la detección y análisis automatizado de 
 
 ### 2. Pantalla Inicial
 
-![Pantalla de inicio](../images/start_screen.png)
-
 Al iniciar la aplicación, verá:
 - Título "Phygital Bone 3.0" en la parte superior
 - Un botón rojo "Load Image" en el centro
@@ -70,8 +68,6 @@ Al iniciar la aplicación, verá:
 
 Una vez seleccionada la imagen, aparecerá una pantalla de procesamiento:
 
-![Pantalla de procesamiento](../images/processing_screen.png)
-
 El procesamiento sigue estos pasos automáticamente:
 
 1. La aplicación divide la imagen en 150 segmentos pequeños (15×10)
@@ -83,8 +79,6 @@ El procesamiento sigue estos pasos automáticamente:
 Este proceso puede tomar desde segundos hasta varios minutos dependiendo del tamaño de la imagen y las capacidades de su sistema.
 
 ### 5. Pantalla de Resultados
-
-![Pantalla de resultados](../images/results_screen.png)
 
 Después del procesamiento, se mostrará la pantalla de resultados con:
 
@@ -110,14 +104,12 @@ Lista de archivos creados durante el análisis:
 La aplicación genera dos tipos principales de visualizaciones:
 
 #### Mapa de Coordenadas
-![Mapa de coordenadas](../images/coordinates_map.png)
 
 - Muestra la imagen original con puntos rojos que marcan cada canal detectado
 - Permite ver la distribución espacial de los canales en el tejido
 - Los puntos son proporcionales al tamaño de los canales
 
 #### Mapa de Calor
-![Mapa de calor](../images/heatmap.png)
 
 - Muestra las zonas de mayor concentración de canales con tonalidades más intensas
 - Proporciona una vista intuitiva de la densidad de canales en diferentes áreas
@@ -195,7 +187,7 @@ Para un análisis más detallado de la distribución espacial:
 
 Para soporte técnico o consultas, contacte al equipo de desarrollo del proyecto Phygital Human Bone a través del repositorio GitHub:
 
-[https://github.com/joan-bl/workspace_tfg](https://github.com/joan-bl/workspace_tfg)
+[https://github.com/joan-bl/workspace_tfg]
 
 ---
 
