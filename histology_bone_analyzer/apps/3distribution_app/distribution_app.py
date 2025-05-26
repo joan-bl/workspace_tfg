@@ -17,6 +17,9 @@ class FemurOsteonaDistributor:
         self.root.geometry("1200x800")
         self.root.configure(bg="#f0f0f0")
         
+        # Configurar el comportamiento al cerrar la ventana
+        self.root.protocol("WM_DELETE_WINDOW", self.close_app)
+
         # Configurar estilo
         self.configure_style()
         
@@ -345,7 +348,17 @@ class FemurOsteonaDistributor:
         except Exception as e:
             messagebox.showerror("Error", f"Error en el cálculo: {str(e)}")
             raise e
-    
+        
+    def close_app(self):
+        import sys
+        try:
+            plt.close('all')
+            self.root.quit()
+            self.root.destroy()
+        except:
+            pass
+        sys.exit()
+        
     def generate_osteona_distribution(self):
         """Genera la distribución de osteonas basada en los parámetros definidos"""
         distribution_data = []
@@ -468,7 +481,7 @@ class FemurOsteonaDistributor:
                 self.results_text.insert(tk.END, f"  - {section}: {count} osteonas ({count/num_osteonas*100:.1f}%)\n")
     
     def update_visualization(self):
-        """Actualiza los gráficos de visualización"""
+        """Actualiza los gráficos de visualización con mejoras"""
         if not self.sections_data or not self.distribution_data:
             return
             
@@ -476,64 +489,90 @@ class FemurOsteonaDistributor:
         self.ax1.clear()
         self.ax2.clear()
         
-        # Colores para las secciones
+        # Colores para las secciones (mantenemos los originales)
         colors = ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99', '#c2c2f0']
         
-        # Gráfico 1: Perfil del hueso con secciones
+        # GRÁFICO 1: Perfil realista del fémur con transiciones suaves
         x_bone = np.linspace(0, self.sections_data["total_length_cm"], 1000)
-        y_bone = np.zeros_like(x_bone)
+        y_bone_superior = np.zeros_like(x_bone)  # Contorno superior
+        y_bone_inferior = np.zeros_like(x_bone)  # Contorno inferior
         
-# Forma aproximada del fémur (simplificada)
+        # Crear forma realista del fémur con transiciones suaves
         for i, x in enumerate(x_bone):
-            # Anchura relativa a lo largo del hueso
             rel_pos = x / self.sections_data["total_length_cm"]
             
-            # Forma de botella con bulbos en los extremos
-            if rel_pos < 0.15:  # Epífisis proximal
-                y_bone[i] = 2.5 * (1 - rel_pos/0.15) + 1
-            elif rel_pos < 0.25:  # Metáfisis proximal
-                y_bone[i] = 1 + (2.5 - 1) * (0.25 - rel_pos) / 0.1
-            elif rel_pos < 0.75:  # Diáfisis
-                y_bone[i] = 1
-            elif rel_pos < 0.85:  # Metáfisis distal
-                y_bone[i] = 1 + (3 - 1) * (rel_pos - 0.75) / 0.1
-            else:  # Epífisis distal
-                y_bone[i] = 3 + (rel_pos - 0.85) * 0.5 / 0.15
-                
-        # Dibujar el perfil del hueso (simétrico respecto al eje x)
-        self.ax1.fill_between(x_bone, y_bone, -y_bone, color='#e0e0e0', alpha=0.5, label='Perfil del fémur')
+            # Función que simula la forma real de un fémur
+            if rel_pos <= 0.15:  # Epífisis proximal (cabeza del fémur)
+                # Forma bulbosa en el extremo proximal
+                width = 2.8 + 0.7 * np.cos(rel_pos * np.pi / 0.15)
+            elif rel_pos <= 0.25:  # Metáfisis proximal (transición suave)
+                # Transición suave usando función sigmoide
+                t = (rel_pos - 0.15) / 0.10  # normalizar entre 0 y 1
+                width_start = 2.8 + 0.7 * np.cos(np.pi)  # ancho al final de epífisis
+                width_end = 1.2  # ancho al inicio de diáfisis
+                width = width_start + (width_end - width_start) * (1 / (1 + np.exp(-10 * (t - 0.5))))
+            elif rel_pos <= 0.75:  # Diáfisis (cilindro con ligera variación)
+                # Ligeramente más estrecho en el centro
+                center_factor = 1 - 0.1 * np.sin((rel_pos - 0.25) * 2 * np.pi / 0.5)
+                width = 1.2 * center_factor
+            elif rel_pos <= 0.85:  # Metáfisis distal (transición suave)
+                # Transición suave hacia la epífisis distal
+                t = (rel_pos - 0.75) / 0.10
+                width_start = 1.2
+                width_end = 3.2  # un poco más ancho que la proximal
+                width = width_start + (width_end - width_start) * (1 / (1 + np.exp(-10 * (t - 0.5))))
+            else:  # Epífisis distal (cóndilos femorales)
+                # Forma más ancha y compleja en el extremo distal
+                width = 3.2 + 0.5 * np.cos((rel_pos - 0.85) * np.pi / 0.15)
+            
+            y_bone_superior[i] = width / 2
+            y_bone_inferior[i] = -width / 2
         
-        # Sombrear las diferentes secciones
+        # Dibujar el perfil del fémur con relleno
+        self.ax1.fill_between(x_bone, y_bone_superior, y_bone_inferior, 
+                            color='lightgray', alpha=0.3, label='Perfil del fémur')
+        
+        # Dibujar los contornos
+        self.ax1.plot(x_bone, y_bone_superior, 'k-', linewidth=2)
+        self.ax1.plot(x_bone, y_bone_inferior, 'k-', linewidth=2)
+        
+        # Sombrear las diferentes secciones con colores
         current_pos = 0
         for i, section in enumerate(self.sections_data["sections"]):
             end_pos = section["end_cm"]
+            
+            # Encontrar los índices correspondientes a esta sección
             section_mask = (x_bone >= current_pos) & (x_bone <= end_pos)
             
-            self.ax1.fill_between(
-                x_bone[section_mask], 
-                y_bone[section_mask], 
-                -y_bone[section_mask], 
-                color=colors[i], 
-                alpha=0.7, 
-                label=section["name"]
-            )
+            if np.any(section_mask):
+                self.ax1.fill_between(
+                    x_bone[section_mask], 
+                    y_bone_superior[section_mask], 
+                    y_bone_inferior[section_mask], 
+                    color=colors[i], 
+                    alpha=0.7, 
+                    label=section["name"]
+                )
             
-            # Dibujar líneas de separación
-            if current_pos > 0:
-                self.ax1.axvline(x=current_pos, color='black', linestyle='--', alpha=0.5)
+            # Dibujar líneas de separación verticales (pero no en los extremos)
+            if 0 < current_pos < self.sections_data["total_length_cm"]:
+                max_width = max(y_bone_superior[x_bone <= current_pos][-1] if len(y_bone_superior[x_bone <= current_pos]) > 0 else 2,
+                            abs(y_bone_inferior[x_bone <= current_pos][-1]) if len(y_bone_inferior[x_bone <= current_pos]) > 0 else 2)
+                self.ax1.axvline(x=current_pos, color='black', linestyle='--', alpha=0.8, linewidth=1)
             
             current_pos = end_pos
         
         # Configurar gráfico 1
-        self.ax1.set_title('Perfil del Fémur y Secciones')
+        self.ax1.set_title('Perfil del Fémur y Secciones Anatómicas', fontsize=12, fontweight='bold')
         self.ax1.set_xlabel('Longitud (cm)')
         self.ax1.set_ylabel('Ancho (cm)')
-        self.ax1.grid(True, linestyle='--', alpha=0.7)
-        self.ax1.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=3)
+        self.ax1.grid(True, linestyle='--', alpha=0.3)
+        self.ax1.legend(loc='upper center', bbox_to_anchor=(0.5, -1), ncol=3, fontsize=9)
+        self.ax1.set_aspect('equal', adjustable='box')
         
-        # Gráfico 2: Distribución de osteonas a lo largo del hueso
+        # GRÁFICO 2: Distribución de osteonas con eje Y independiente
         positions = [osteona["position_z_cm"] for osteona in self.distribution_data]
-        sizes = [osteona["size_um"] / 100 for osteona in self.distribution_data]  # Normalizar tamaños para visualización
+        sizes = [osteona["size_um"] for osteona in self.distribution_data]  # Mantener en micrómetros
         colors_scatter = []
         
         # Asignar colores según la sección
@@ -542,26 +581,43 @@ class FemurOsteonaDistributor:
             idx = next(i for i, s in enumerate(self.sections_data["sections"]) if s["name"] == section_name)
             colors_scatter.append(colors[idx])
         
-        # Dibujamos las osteonas como puntos
-        self.ax2.scatter(positions, [0]*len(positions), c=colors_scatter, s=sizes, alpha=0.7)
+        # Crear scatter plot con tamaños escalados para mejor visualización
+        # Escalar los tamaños para que sean visibles (dividir por 10 para que estén en rango 15-25 aprox)
+        sizes_scaled = [s/10 for s in sizes]
         
-        # Línea representando el hueso
-        self.ax2.axhline(y=0, color='black', linestyle='-', alpha=0.5)
+        scatter = self.ax2.scatter(positions, sizes, c=colors_scatter, s=30, alpha=0.7, edgecolors='black', linewidth=0.5)
         
-        # Líneas para separar secciones
+        # Líneas verticales para separar secciones
         for section in self.sections_data["sections"]:
             if section["start_cm"] > 0:
-                self.ax2.axvline(x=section["start_cm"], color='black', linestyle='--', alpha=0.5)
+                self.ax2.axvline(x=section["start_cm"], color='black', linestyle='--', alpha=0.5, linewidth=1)
         
-        # Configurar gráfico 2
-        self.ax2.set_title('Distribución de Osteonas a lo largo del Fémur')
+        # Configurar gráfico 2 con eje Y independiente
+        self.ax2.set_title('Distribución de Osteonas a lo largo del Fémur', fontsize=12, fontweight='bold')
         self.ax2.set_xlabel('Posición Longitudinal (cm)')
-        self.ax2.set_yticks([])  # Ocultar eje y
+        self.ax2.set_ylabel('Tamaño de Osteonas (μm)')  # Eje Y independiente en micrómetros
         self.ax2.set_xlim(0, self.sections_data["total_length_cm"])
-        self.ax2.grid(True, linestyle='--', alpha=0.7, axis='x')
         
-        # Ajustar diseño y mostrar
-        self.figure.tight_layout()
+        # Establecer límites del eje Y basados en los datos reales
+        if sizes:
+            y_min = min(sizes) * 0.9  # Un poco por debajo del mínimo
+            y_max = max(sizes) * 1.1  # Un poco por encima del máximo
+            self.ax2.set_ylim(y_min, y_max)
+        
+        self.ax2.grid(True, linestyle='--', alpha=0.3)
+        
+        # Añadir información estadística como texto
+        if sizes:
+            stats_text = f'Rango: {min(sizes):.0f}-{max(sizes):.0f} μm\n'
+            stats_text += f'Promedio: {np.mean(sizes):.1f} μm\n'
+            stats_text += f'Total osteonas: {len(sizes)}'
+            
+            self.ax2.text(0.02, 0.98, stats_text, transform=self.ax2.transAxes, 
+                        verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
+                        fontsize=9)
+        
+        # Ajustar diseño para evitar solapamientos
+        self.figure.tight_layout(pad=3.0)
         self.canvas.draw()
     
     def save_visualization(self):
@@ -833,7 +889,6 @@ class FemurOsteonaDistributor:
         # Escribir el contenido a un archivo
         with open(html_path, 'w') as f:
             f.write(html_content)
-
 
 if __name__ == "__main__":
     root = tk.Tk()
