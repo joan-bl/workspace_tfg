@@ -272,7 +272,9 @@ def calculate_distance_matrix(centers_df):
         
     for i in range(len(points)):
         for j in range(i + 1, len(points)):
-            dist = np.sqrt(((points[i] - points[j]) ** 2).sum())
+            # Cambio simple para evitar la advertencia de NumPy
+            diff = points[i] - points[j]
+            dist = np.sqrt(np.sum(diff * diff))
             distances.append(dist)
     
     return np.mean(distances) if distances else 0
@@ -282,13 +284,22 @@ def plot_centers(df, image_path):
     plt.figure(figsize=(16, 16))
     # Cargar la imagen inicial
     image = plt.imread(image_path)
-    plt.imshow(image, extent=[0, image.shape[1], image.shape[0], 0], alpha=0.6)
-    plt.scatter(df['Center X'], df['Center Y'], c=BUTTON_COLOR, marker='o', s=10)  # Puntos rojos (color de botones)
+    height, width = image.shape[:2]
+    
+    # Mostrar la imagen con el sistema de coordenadas correcto
+    plt.imshow(image, extent=[0, width, height, 0], alpha=0.6)
+    
+    # Las coordenadas Y necesitan ser invertidas para coincidir con la imagen
+    plt.scatter(df['Center X'], df['Center Y'], c=BUTTON_COLOR, marker='o', s=10)
+    
     plt.title('Mapa de coordenadas de canales de Havers')
     plt.xlabel('Center X')
     plt.ylabel('Center Y')
     plt.grid(True)
-    plt.gca().invert_yaxis()
+    
+    # Establecer los límites correctos
+    plt.xlim(0, width)
+    plt.ylim(height, 0)  # Y va de height a 0 para coincidir con la imagen
     
     # Guardar en archivo físico
     plot_filename = os.path.join(RESULTS_DIR, "mapa_coordenadas.png")
@@ -299,19 +310,29 @@ def plot_centers(df, image_path):
 def plot_heatmap(df, image_path):
     """Genera un mapa de calor para visualizar la densidad de canales de Havers."""
     plt.figure(figsize=(16, 16))
+    # Cargar la imagen para obtener dimensiones
+    image = plt.imread(image_path)
+    height, width = image.shape[:2]
+    
     # Generar el mapa de calor
     heatmap, xedges, yedges = np.histogram2d(df['Center X'], df['Center Y'], bins=(100, 100))
-    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
-    plt.imshow(heatmap.T, extent=extent, origin='lower', cmap='Reds', alpha=0.6)
+    
+    # Mostrar el mapa de calor con orientación correcta
+    plt.imshow(heatmap.T, extent=[xedges[0], xedges[-1], yedges[-1], yedges[0]], 
+               cmap='Reds', alpha=0.6, origin='upper')
     plt.colorbar()
-    # Cargar la imagen inicial con transparencia
-    image = plt.imread(image_path)
-    plt.imshow(image, extent=[0, image.shape[1], image.shape[0], 0], alpha=0.4)
+    
+    # Mostrar la imagen de fondo
+    plt.imshow(image, extent=[0, width, height, 0], alpha=0.4)
+    
     plt.title('Mapa de densidad de canales de Havers')
     plt.xlabel('Center X')
     plt.ylabel('Center Y')
     plt.grid(True)
-    plt.gca().invert_yaxis()
+    
+    # Establecer los límites correctos
+    plt.xlim(0, width)
+    plt.ylim(height, 0)
     
     # Guardar en archivo físico
     heatmap_filename = os.path.join(RESULTS_DIR, "mapa_calor.png")

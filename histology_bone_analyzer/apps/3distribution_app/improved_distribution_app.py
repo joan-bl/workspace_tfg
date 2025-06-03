@@ -14,7 +14,7 @@ import math
 class FemurOsteonaDistributor:
     def __init__(self, root):
         self.root = root
-        self.root.title("Femur Osteona Distributor - Anatomically Correct")
+        self.root.title("Femur Osteona Distributor - Zona Cortical Realista")
         self.root.geometry("1200x800")
         self.root.configure(bg="#f0f0f0")
         
@@ -24,7 +24,7 @@ class FemurOsteonaDistributor:
         # Configurar estilo
         self.configure_style()
         
-        # Variables de longitud y proporciones (sin cambios)
+        # Variables de longitud y proporciones
         self.femur_length = tk.DoubleVar(value=45.0)  # Valor por defecto en cm
         self.epiphysis_proximal_percent = tk.DoubleVar(value=15.0)
         self.metaphysis_proximal_percent = tk.DoubleVar(value=10.0)
@@ -32,19 +32,26 @@ class FemurOsteonaDistributor:
         self.metaphysis_distal_percent = tk.DoubleVar(value=10.0)
         self.epiphysis_distal_percent = tk.DoubleVar(value=15.0)
         
-        # NUEVAS VARIABLES: Radios anatómicos por sección (en cm)
+        # Variables de radios anatómicos por sección (en cm)
         self.radius_epiphysis_proximal = tk.DoubleVar(value=2.5)
         self.radius_metaphysis_proximal = tk.DoubleVar(value=1.5)
         self.radius_diaphysis = tk.DoubleVar(value=1.0)
         self.radius_metaphysis_distal = tk.DoubleVar(value=1.8)
         self.radius_epiphysis_distal = tk.DoubleVar(value=3.0)
         
+        # NUEVAS VARIABLES: Grosor cortical por sección (en cm)
+        self.cortical_thickness_epiphysis_proximal = tk.DoubleVar(value=0.25)  # 2.5mm
+        self.cortical_thickness_metaphysis_proximal = tk.DoubleVar(value=0.35)  # 3.5mm
+        self.cortical_thickness_diaphysis = tk.DoubleVar(value=0.45)  # 4.5mm
+        self.cortical_thickness_metaphysis_distal = tk.DoubleVar(value=0.35)  # 3.5mm
+        self.cortical_thickness_epiphysis_distal = tk.DoubleVar(value=0.25)  # 2.5mm
+        
         # DENSIDADES CORREGIDAS: Basadas en literatura científica (osteonas/cm²)
-        self.density_epiphysis_proximal = tk.DoubleVar(value=1500.0)  # Era 25.0
-        self.density_metaphysis_proximal = tk.DoubleVar(value=1800.0)  # Era 40.0
-        self.density_diaphysis = tk.DoubleVar(value=2000.0)  # Era 60.0
-        self.density_metaphysis_distal = tk.DoubleVar(value=1800.0)  # Era 40.0
-        self.density_epiphysis_distal = tk.DoubleVar(value=1500.0)  # Era 25.0
+        self.density_epiphysis_proximal = tk.DoubleVar(value=1500.0)
+        self.density_metaphysis_proximal = tk.DoubleVar(value=1800.0)
+        self.density_diaphysis = tk.DoubleVar(value=2000.0)
+        self.density_metaphysis_distal = tk.DoubleVar(value=1800.0)
+        self.density_epiphysis_distal = tk.DoubleVar(value=1500.0)
         
         # Dimensiones de las osteonas por sección (diámetro en micrómetros)
         self.osteona_size_epiphysis_proximal = tk.DoubleVar(value=200.0)
@@ -53,12 +60,12 @@ class FemurOsteonaDistributor:
         self.osteona_size_metaphysis_distal = tk.DoubleVar(value=180.0)
         self.osteona_size_epiphysis_distal = tk.DoubleVar(value=200.0)
         
-        # Factor de variabilidad en la distribución - VALORES AJUSTADOS
-        self.variability_epiphysis_proximal = tk.DoubleVar(value=0.05)  # Era 0.7
-        self.variability_metaphysis_proximal = tk.DoubleVar(value=0.05)  # Era 0.5
-        self.variability_diaphysis = tk.DoubleVar(value=0.05)  # Era 0.3
-        self.variability_metaphysis_distal = tk.DoubleVar(value=0.05)  # Era 0.5
-        self.variability_epiphysis_distal = tk.DoubleVar(value=0.05)  # Era 0.7
+        # Factor de variabilidad en la distribución
+        self.variability_epiphysis_proximal = tk.DoubleVar(value=0.05)
+        self.variability_metaphysis_proximal = tk.DoubleVar(value=0.05)
+        self.variability_diaphysis = tk.DoubleVar(value=0.05)
+        self.variability_metaphysis_distal = tk.DoubleVar(value=0.05)
+        self.variability_epiphysis_distal = tk.DoubleVar(value=0.05)
         
         # Crear la interfaz de usuario
         self.create_ui()
@@ -118,56 +125,62 @@ class FemurOsteonaDistributor:
         ttk.Entry(input_frame, textvariable=self.femur_length, width=10).grid(row=0, column=1, padx=5, pady=5, sticky="w")
         
         # Marco para porcentajes de secciones
-        sections_frame = ttk.LabelFrame(self.tab_params, text="Proporciones y Propiedades Anatómicas")
+        sections_frame = ttk.LabelFrame(self.tab_params, text="Proporciones y Propiedades Anatómicas (Solo Zona Cortical)")
         sections_frame.pack(fill="both", expand=False, padx=10, pady=10)
         
         # Etiquetas de columnas ACTUALIZADAS
         ttk.Label(sections_frame, text="Sección").grid(row=0, column=0, padx=5, pady=5, sticky="w")
         ttk.Label(sections_frame, text="% Longitud").grid(row=0, column=1, padx=5, pady=5, sticky="w")
-        ttk.Label(sections_frame, text="Radio (cm)").grid(row=0, column=2, padx=5, pady=5, sticky="w")
-        ttk.Label(sections_frame, text="Densidad (ost/cm²)").grid(row=0, column=3, padx=5, pady=5, sticky="w")
-        ttk.Label(sections_frame, text="Tamaño (μm)").grid(row=0, column=4, padx=5, pady=5, sticky="w")
-        ttk.Label(sections_frame, text="Variabilidad (0-1)").grid(row=0, column=5, padx=5, pady=5, sticky="w")
+        ttk.Label(sections_frame, text="Radio Total (cm)").grid(row=0, column=2, padx=5, pady=5, sticky="w")
+        ttk.Label(sections_frame, text="Grosor Cortical (cm)").grid(row=0, column=3, padx=5, pady=5, sticky="w")
+        ttk.Label(sections_frame, text="Densidad (ost/cm²)").grid(row=0, column=4, padx=5, pady=5, sticky="w")
+        ttk.Label(sections_frame, text="Tamaño (μm)").grid(row=0, column=5, padx=5, pady=5, sticky="w")
+        ttk.Label(sections_frame, text="Variabilidad (0-1)").grid(row=0, column=6, padx=5, pady=5, sticky="w")
         
         # Epífisis proximal
         ttk.Label(sections_frame, text="Epífisis Proximal").grid(row=1, column=0, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.epiphysis_proximal_percent, width=8).grid(row=1, column=1, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.radius_epiphysis_proximal, width=8).grid(row=1, column=2, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.density_epiphysis_proximal, width=8).grid(row=1, column=3, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.osteona_size_epiphysis_proximal, width=8).grid(row=1, column=4, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.variability_epiphysis_proximal, width=8).grid(row=1, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.cortical_thickness_epiphysis_proximal, width=8).grid(row=1, column=3, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.density_epiphysis_proximal, width=8).grid(row=1, column=4, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.osteona_size_epiphysis_proximal, width=8).grid(row=1, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.variability_epiphysis_proximal, width=8).grid(row=1, column=6, padx=5, pady=5, sticky="w")
         
         # Metáfisis proximal
         ttk.Label(sections_frame, text="Metáfisis Proximal").grid(row=2, column=0, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.metaphysis_proximal_percent, width=8).grid(row=2, column=1, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.radius_metaphysis_proximal, width=8).grid(row=2, column=2, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.density_metaphysis_proximal, width=8).grid(row=2, column=3, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.osteona_size_metaphysis_proximal, width=8).grid(row=2, column=4, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.variability_metaphysis_proximal, width=8).grid(row=2, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.cortical_thickness_metaphysis_proximal, width=8).grid(row=2, column=3, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.density_metaphysis_proximal, width=8).grid(row=2, column=4, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.osteona_size_metaphysis_proximal, width=8).grid(row=2, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.variability_metaphysis_proximal, width=8).grid(row=2, column=6, padx=5, pady=5, sticky="w")
         
         # Diáfisis
         ttk.Label(sections_frame, text="Diáfisis").grid(row=3, column=0, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.diaphysis_percent, width=8).grid(row=3, column=1, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.radius_diaphysis, width=8).grid(row=3, column=2, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.density_diaphysis, width=8).grid(row=3, column=3, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.osteona_size_diaphysis, width=8).grid(row=3, column=4, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.variability_diaphysis, width=8).grid(row=3, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.cortical_thickness_diaphysis, width=8).grid(row=3, column=3, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.density_diaphysis, width=8).grid(row=3, column=4, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.osteona_size_diaphysis, width=8).grid(row=3, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.variability_diaphysis, width=8).grid(row=3, column=6, padx=5, pady=5, sticky="w")
         
         # Metáfisis distal
         ttk.Label(sections_frame, text="Metáfisis Distal").grid(row=4, column=0, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.metaphysis_distal_percent, width=8).grid(row=4, column=1, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.radius_metaphysis_distal, width=8).grid(row=4, column=2, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.density_metaphysis_distal, width=8).grid(row=4, column=3, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.osteona_size_metaphysis_distal, width=8).grid(row=4, column=4, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.variability_metaphysis_distal, width=8).grid(row=4, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.cortical_thickness_metaphysis_distal, width=8).grid(row=4, column=3, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.density_metaphysis_distal, width=8).grid(row=4, column=4, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.osteona_size_metaphysis_distal, width=8).grid(row=4, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.variability_metaphysis_distal, width=8).grid(row=4, column=6, padx=5, pady=5, sticky="w")
         
         # Epífisis distal
         ttk.Label(sections_frame, text="Epífisis Distal").grid(row=5, column=0, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.epiphysis_distal_percent, width=8).grid(row=5, column=1, padx=5, pady=5, sticky="w")
         ttk.Entry(sections_frame, textvariable=self.radius_epiphysis_distal, width=8).grid(row=5, column=2, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.density_epiphysis_distal, width=8).grid(row=5, column=3, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.osteona_size_epiphysis_distal, width=8).grid(row=5, column=4, padx=5, pady=5, sticky="w")
-        ttk.Entry(sections_frame, textvariable=self.variability_epiphysis_distal, width=8).grid(row=5, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.cortical_thickness_epiphysis_distal, width=8).grid(row=5, column=3, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.density_epiphysis_distal, width=8).grid(row=5, column=4, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.osteona_size_epiphysis_distal, width=8).grid(row=5, column=5, padx=5, pady=5, sticky="w")
+        ttk.Entry(sections_frame, textvariable=self.variability_epiphysis_distal, width=8).grid(row=5, column=6, padx=5, pady=5, sticky="w")
         
         # Botón de cálculo
         calculate_button = ttk.Button(
@@ -292,7 +305,7 @@ class FemurOsteonaDistributor:
             ep_dist_start = met_dist_end
             ep_dist_end = total_length
             
-            # ALMACENAR DATOS DE SECCIONES CON RADIOS
+            # ALMACENAR DATOS DE SECCIONES CON RADIOS Y GROSOR CORTICAL
             self.sections_data = {
                 "total_length_cm": total_length,
                 "sections": [
@@ -303,6 +316,7 @@ class FemurOsteonaDistributor:
                         "length_cm": ep_prox_length,
                         "percent": self.epiphysis_proximal_percent.get(),
                         "radius_cm": self.radius_epiphysis_proximal.get(),
+                        "cortical_thickness": self.cortical_thickness_epiphysis_proximal.get(),
                         "density_per_cm2": self.density_epiphysis_proximal.get(),
                         "osteona_size_um": self.osteona_size_epiphysis_proximal.get(),
                         "variability": self.variability_epiphysis_proximal.get()
@@ -314,6 +328,7 @@ class FemurOsteonaDistributor:
                         "length_cm": met_prox_length,
                         "percent": self.metaphysis_proximal_percent.get(),
                         "radius_cm": self.radius_metaphysis_proximal.get(),
+                        "cortical_thickness": self.cortical_thickness_metaphysis_proximal.get(),
                         "density_per_cm2": self.density_metaphysis_proximal.get(),
                         "osteona_size_um": self.osteona_size_metaphysis_proximal.get(),
                         "variability": self.variability_metaphysis_proximal.get()
@@ -325,6 +340,7 @@ class FemurOsteonaDistributor:
                         "length_cm": dia_length,
                         "percent": self.diaphysis_percent.get(),
                         "radius_cm": self.radius_diaphysis.get(),
+                        "cortical_thickness": self.cortical_thickness_diaphysis.get(),
                         "density_per_cm2": self.density_diaphysis.get(),
                         "osteona_size_um": self.osteona_size_diaphysis.get(),
                         "variability": self.variability_diaphysis.get()
@@ -336,6 +352,7 @@ class FemurOsteonaDistributor:
                         "length_cm": met_dist_length,
                         "percent": self.metaphysis_distal_percent.get(),
                         "radius_cm": self.radius_metaphysis_distal.get(),
+                        "cortical_thickness": self.cortical_thickness_metaphysis_distal.get(),
                         "density_per_cm2": self.density_metaphysis_distal.get(),
                         "osteona_size_um": self.osteona_size_metaphysis_distal.get(),
                         "variability": self.variability_metaphysis_distal.get()
@@ -347,6 +364,7 @@ class FemurOsteonaDistributor:
                         "length_cm": ep_dist_length,
                         "percent": self.epiphysis_distal_percent.get(),
                         "radius_cm": self.radius_epiphysis_distal.get(),
+                        "cortical_thickness": self.cortical_thickness_epiphysis_distal.get(),
                         "density_per_cm2": self.density_epiphysis_distal.get(),
                         "osteona_size_um": self.osteona_size_epiphysis_distal.get(),
                         "variability": self.variability_epiphysis_distal.get()
@@ -379,24 +397,29 @@ class FemurOsteonaDistributor:
         sys.exit()
         
     def generate_osteona_distribution(self):
-        """Genera distribución anatómicamente correcta con transiciones suaves"""
+        """Genera distribución anatómicamente correcta solo en zona cortical"""
         distribution_data = []
         
         # Para cada sección, generar las osteonas principales
         for i, section in enumerate(self.sections_data["sections"]):
-            # Usar área circular real π*r²
-            radius_cm = section["radius_cm"]
-            section_area = math.pi * (radius_cm ** 2)
+            # Calcular área SOLO de la zona cortical (anillo exterior)
+            radio_externo = section["radius_cm"]
+            radio_interno = max(0, radio_externo - section["cortical_thickness"])
+            cortical_area = math.pi * (radio_externo**2 - radio_interno**2)
             
-            # Calcular número de osteonas usando densidad real
-            num_osteonas = int(section_area * section["density_per_cm2"])
+            # Calcular número de osteonas usando densidad real aplicada solo al área cortical
+            num_osteonas = int(cortical_area * section["density_per_cm2"])
             
             section_osteonas = []
             
             # Generar osteonas principales con distribución mejorada
             for j in range(num_osteonas):
-                # Coordenadas X,Y dentro del radio
-                x, y = self.generate_xy_position(radius_cm, section["variability"])
+                # Coordenadas X,Y SOLO dentro de la zona cortical
+                x, y = self.generate_xy_position(
+                    section["radius_cm"], 
+                    section["cortical_thickness"], 
+                    section["variability"]
+                )
                 
                 # Posición longitudinal Z con distribución mejorada
                 pos_z = self.generate_position_improved(
@@ -432,37 +455,40 @@ class FemurOsteonaDistributor:
         # Guardar los datos
         self.distribution_data = distribution_data
     
-    def generate_xy_position(self, radius_cm, variability):
+    def generate_xy_position(self, radius_cm, cortical_thickness, variability):
         """
-        Genera coordenadas X,Y dentro de un círculo de radio dado
+        Genera coordenadas X,Y SOLO en la zona cortical (anillo exterior)
         
         Args:
-            radius_cm: Radio de la sección en cm
+            radius_cm: Radio total de la sección en cm
+            cortical_thickness: Grosor de la zona cortical en cm
             variability: Factor de variabilidad para la distribución
             
         Returns:
-            Tupla (x, y) en cm
+            Tupla (x, y) en cm dentro de la zona cortical
         """
-        # Para variabilidad baja, distribución más uniforme
+        radio_interno = max(0, radius_cm - cortical_thickness)
+        radio_externo = radius_cm
+        
+        # Generar ángulo aleatorio
+        angle = random.uniform(0, 2 * math.pi)
+        
+        # Generar radio SOLO en la zona cortical
         if variability < 0.3:
-            # Distribución uniforme dentro del círculo
-            angle = random.uniform(0, 2 * math.pi)
-            r = radius_cm * math.sqrt(random.uniform(0, 1))  # Distribución uniforme en área
-            
+            # Distribución uniforme en la zona cortical
+            r = random.uniform(radio_interno, radio_externo)
         elif variability < 0.7:
-            # Distribución normal centrada (más osteonas hacia el centro)
-            angle = random.uniform(0, 2 * math.pi)
-            # Distribución normal truncada para el radio
-            r = radius_cm * math.sqrt(random.uniform(0, 1))
-            r = min(r, radius_cm)  # Asegurar que no exceda el radio
-            
+            # Distribución con tendencia hacia el centro de la zona cortical
+            centro_cortical = (radio_interno + radio_externo) / 2
+            desviacion = (radio_externo - radio_interno) / 4
+            r = np.random.normal(centro_cortical, desviacion)
+            r = max(radio_interno, min(radio_externo, r))  # Asegurar que esté en rango
         else:
-            # Variabilidad alta: más concentración en el borde cortical
-            angle = random.uniform(0, 2 * math.pi)
-            if random.random() < 0.7:  # 70% cerca del borde
-                r = radius_cm * random.uniform(0.7, 1.0)
-            else:  # 30% distribuido uniformemente
-                r = radius_cm * math.sqrt(random.uniform(0, 1))
+            # Variabilidad alta: más concentración en el borde exterior
+            if random.random() < 0.7:  # 70% cerca del borde exterior
+                r = random.uniform(radio_externo * 0.9, radio_externo)
+            else:  # 30% distribuido uniformemente en zona cortical
+                r = random.uniform(radio_interno, radio_externo)
         
         # Convertir coordenadas polares a cartesianas
         x = r * math.cos(angle)
@@ -473,7 +499,7 @@ class FemurOsteonaDistributor:
     def generate_transition_osteonas(self, section1, section2):
         """
         Genera osteonas en la zona de transición entre dos secciones
-        para crear transiciones suaves y eliminar espacios vacíos
+        SOLO en la zona cortical
         """
         transition_osteonas = []
         
@@ -486,21 +512,24 @@ class FemurOsteonaDistributor:
         if transition_length <= 0:
             return transition_osteonas
         
-        # Calcular radio de transición (promedio de ambas secciones)
+        # Calcular parámetros de transición
         avg_radius = (section1["radius_cm"] + section2["radius_cm"]) / 2
+        avg_cortical_thickness = (section1["cortical_thickness"] + section2["cortical_thickness"]) / 2
         avg_density = (section1["density_per_cm2"] + section2["density_per_cm2"]) / 2
         avg_size = (section1["osteona_size_um"] + section2["osteona_size_um"]) / 2
         
-        # Área de transición
-        transition_area = math.pi * (avg_radius ** 2)
+        # Área cortical de transición
+        radio_externo = avg_radius
+        radio_interno = max(0, radio_externo - avg_cortical_thickness)
+        transition_cortical_area = math.pi * (radio_externo**2 - radio_interno**2)
         
         # Número de osteonas de transición (30% de la densidad normal)
-        num_transition = int(transition_area * avg_density * 0.3 * (transition_length / section1["length_cm"]))
+        num_transition = int(transition_cortical_area * avg_density * 0.3 * (transition_length / section1["length_cm"]))
         
         # Generar osteonas de transición
         for i in range(num_transition):
-            # Coordenadas X,Y con radio de transición
-            x, y = self.generate_xy_position(avg_radius, 0.2)  # Baja variabilidad para transición suave
+            # Coordenadas X,Y SOLO en zona cortical de transición
+            x, y = self.generate_xy_position(avg_radius, avg_cortical_thickness, 0.2)
             
             # Coordenada Z en la zona de transición
             pos_z = random.uniform(transition_start, transition_end)
@@ -528,14 +557,6 @@ class FemurOsteonaDistributor:
         """
         Genera una posición aleatoria con distribución más uniforme
         y menos concentración extrema en los bordes
-        
-        Args:
-            min_val: Valor mínimo del rango
-            max_val: Valor máximo del rango
-            variability: Factor de variabilidad (0.0 = uniforme, 1.0 = variable)
-            
-        Returns:
-            Posición generada
         """
         # Para variabilidad muy baja, distribución completamente uniforme
         if variability < 0.2:
@@ -567,7 +588,7 @@ class FemurOsteonaDistributor:
         return self.generate_position_improved(min_val, max_val, variability)
     
     def display_results(self):
-        """Muestra los resultados incluyendo información de radios"""
+        """Muestra los resultados incluyendo información de zona cortical"""
         if not self.sections_data:
             return
             
@@ -575,41 +596,47 @@ class FemurOsteonaDistributor:
         self.results_text.delete(1.0, tk.END)
         
         # Mostrar información general
-        self.results_text.insert(tk.END, f"FÉMUR ANATÓMICAMENTE CORRECTO\n")
+        self.results_text.insert(tk.END, f"FÉMUR CON ZONA CORTICAL REALISTA\n")
         self.results_text.insert(tk.END, f"{'='*50}\n\n")
         self.results_text.insert(tk.END, f"Longitud total del fémur: {self.sections_data['total_length_cm']:.2f} cm\n\n")
         
-        # Mostrar información de cada sección con áreas calculadas
-        total_area = 0
+        # Mostrar información de cada sección con áreas corticales
+        total_cortical_area = 0
         total_osteonas_calculated = 0
         
         for section in self.sections_data["sections"]:
-            area_cm2 = math.pi * (section['radius_cm'] ** 2)
-            osteonas_section = int(area_cm2 * section['density_per_cm2'])
-            total_area += area_cm2
+            # Calcular área SOLO de la zona cortical
+            radio_externo = section['radius_cm']
+            radio_interno = max(0, radio_externo - section['cortical_thickness'])
+            cortical_area_cm2 = math.pi * (radio_externo**2 - radio_interno**2)
+            
+            osteonas_section = int(cortical_area_cm2 * section['density_per_cm2'])
+            total_cortical_area += cortical_area_cm2
             total_osteonas_calculated += osteonas_section
             
             self.results_text.insert(tk.END, f"Sección: {section['name']}\n")
             self.results_text.insert(tk.END, f"  - Inicio: {section['start_cm']:.2f} cm\n")
             self.results_text.insert(tk.END, f"  - Fin: {section['end_cm']:.2f} cm\n")
             self.results_text.insert(tk.END, f"  - Longitud: {section['length_cm']:.2f} cm ({section['percent']:.1f}%)\n")
-            self.results_text.insert(tk.END, f"  - Radio: {section['radius_cm']:.2f} cm\n")
-            self.results_text.insert(tk.END, f"  - Área circular: {area_cm2:.2f} cm²\n")
+            self.results_text.insert(tk.END, f"  - Radio total: {section['radius_cm']:.2f} cm\n")
+            self.results_text.insert(tk.END, f"  - Grosor cortical: {section['cortical_thickness']:.2f} cm\n")
+            self.results_text.insert(tk.END, f"  - Radio interno: {radio_interno:.2f} cm\n")
+            self.results_text.insert(tk.END, f"  - Área cortical: {cortical_area_cm2:.2f} cm²\n")
             self.results_text.insert(tk.END, f"  - Densidad: {section['density_per_cm2']:.0f} osteonas/cm²\n")
             self.results_text.insert(tk.END, f"  - Osteonas calculadas: {osteonas_section:,}\n")
             self.results_text.insert(tk.END, f"  - Tamaño medio: {section['osteona_size_um']:.1f} μm\n")
             self.results_text.insert(tk.END, f"  - Variabilidad: {section['variability']:.2f}\n\n")
         
         # Mostrar estadísticas de la distribución
-        self.results_text.insert(tk.END, f"ESTADÍSTICAS TOTALES\n")
-        self.results_text.insert(tk.END, f"{'='*30}\n")
-        self.results_text.insert(tk.END, f"Área cortical total: {total_area:.2f} cm²\n")
+        self.results_text.insert(tk.END, f"ESTADÍSTICAS TOTALES (SOLO ZONA CORTICAL)\n")
+        self.results_text.insert(tk.END, f"{'='*40}\n")
+        self.results_text.insert(tk.END, f"Área cortical total: {total_cortical_area:.2f} cm²\n")
         self.results_text.insert(tk.END, f"Osteonas calculadas: {total_osteonas_calculated:,}\n")
         
         if self.distribution_data:
             num_osteonas = len(self.distribution_data)
             self.results_text.insert(tk.END, f"Osteonas generadas: {num_osteonas:,}\n")
-            self.results_text.insert(tk.END, f"Densidad promedio: {num_osteonas/total_area:.0f} ost/cm²\n\n")
+            self.results_text.insert(tk.END, f"Densidad promedio: {num_osteonas/total_cortical_area:.0f} ost/cm²\n\n")
             
             # Contar osteonas por sección
             section_counts = {}
@@ -688,9 +715,9 @@ class FemurOsteonaDistributor:
         self.ax1.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=3, fontsize=9)
         self.ax1.set_aspect('equal', adjustable='box')
         
-        # GRÁFICO 2: Vista superior (distribución X,Y) por secciones
-        x_positions = [osteona["position_x_cm"] for osteona in self.distribution_data]
-        y_positions = [osteona["position_y_cm"] for osteona in self.distribution_data]
+        # GRÁFICO 2: Distribución de osteonas a lo largo del fémur (VUELTA AL FORMATO ORIGINAL)
+        z_positions = [osteona["position_z_cm"] for osteona in self.distribution_data]
+        sizes = [osteona["size_um"] for osteona in self.distribution_data]
         colors_scatter = []
         
         # Asignar colores según la sección
@@ -701,32 +728,35 @@ class FemurOsteonaDistributor:
             idx = next((i for i, s in enumerate(self.sections_data["sections"]) if s["name"] == base_section_name), 0)
             colors_scatter.append(colors[idx])
         
-        # Crear scatter plot de vista superior
-        self.ax2.scatter(x_positions, y_positions, c=colors_scatter, s=1, alpha=0.6)
+        # Crear scatter plot de distribución longitudinal
+        self.ax2.scatter(z_positions, sizes, c=colors_scatter, s=8, alpha=0.7)
         
-        # Dibujar círculos que representan los límites de cada sección
+        # Dibujar líneas verticales que separan las secciones
         for i, section in enumerate(self.sections_data["sections"]):
-            circle = plt.Circle((0, 0), section["radius_cm"], 
-                              fill=False, color=colors[i], linestyle='--', alpha=0.8, linewidth=2)
-            self.ax2.add_patch(circle)
+            if section["start_cm"] > 0:
+                self.ax2.axvline(x=section["start_cm"], color='black', linestyle='--', alpha=0.8, linewidth=1)
         
         # Configurar gráfico 2
-        self.ax2.set_title('Vista Superior - Distribución Radial de Osteonas', fontsize=12, fontweight='bold')
-        self.ax2.set_xlabel('Posición X (cm)')
-        self.ax2.set_ylabel('Posición Y (cm)')
-        self.ax2.set_aspect('equal', adjustable='box')
+        self.ax2.set_title('Distribución de Osteonas a lo largo del Fémur', fontsize=12, fontweight='bold')
+        self.ax2.set_xlabel('Posición Longitudinal (cm)')
+        self.ax2.set_ylabel('Tamaño de Osteonas (μm)')
         self.ax2.grid(True, linestyle='--', alpha=0.3)
         
-        # Establecer límites para mostrar la sección más grande
-        max_radius = max(section["radius_cm"] for section in self.sections_data["sections"])
-        self.ax2.set_xlim(-max_radius*1.1, max_radius*1.1)
-        self.ax2.set_ylim(-max_radius*1.1, max_radius*1.1)
+        # Establecer límites del eje Y para mostrar el rango completo de tamaños
+        if sizes:
+            min_size = min(sizes)
+            max_size = max(sizes)
+            padding = (max_size - min_size) * 0.1
+            self.ax2.set_ylim(min_size - padding, max_size + padding)
+        
+        # Establecer límites del eje X para mostrar toda la longitud del fémur
+        self.ax2.set_xlim(0, self.sections_data["total_length_cm"])
         
         # Añadir información estadística
         if self.distribution_data:
-            stats_text = f'Total osteonas: {len(self.distribution_data):,}\n'
-            stats_text += f'Rango radial: {max_radius:.1f} cm\n'
-            stats_text += f'Densidad media: {len(self.distribution_data)/(math.pi * max_radius**2):.0f} ost/cm²'
+            stats_text = f'Rango: {min(sizes):.0f}-{max(sizes):.0f} μm\n'
+            stats_text += f'Promedio: {np.mean(sizes):.1f} μm\n'
+            stats_text += f'Total osteonas: {len(self.distribution_data):,}'
             
             self.ax2.text(0.02, 0.98, stats_text, transform=self.ax2.transAxes, 
                         verticalalignment='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8),
@@ -756,17 +786,17 @@ class FemurOsteonaDistributor:
                 messagebox.showerror("Error", f"Error al guardar la visualización: {str(e)}")
     
     def update_preview(self):
-        """Previsualización con coordenadas X,Y,Z (sin ángulo)"""
+        """Previsualización con coordenadas X,Y,Z"""
         if not self.distribution_data:
             return
             
         # Limpiar el área de previsualización
         self.preview_text.delete(1.0, tk.END)
         
-        # Mostrar los primeros 20 registros (o menos si hay menos)
+        # Mostrar los primeros 20 registros
         num_preview = min(20, len(self.distribution_data))
         
-        self.preview_text.insert(tk.END, "PREVISUALIZACIÓN DE DATOS OPTIMIZADOS (primeros 20 registros):\n\n")
+        self.preview_text.insert(tk.END, "PREVISUALIZACIÓN - ZONA CORTICAL REALISTA (primeros 20 registros):\n\n")
         self.preview_text.insert(tk.END, "section_name, position_x_cm, position_y_cm, position_z_cm, size_um\n")
         self.preview_text.insert(tk.END, "-" * 70 + "\n")
         
@@ -779,13 +809,14 @@ class FemurOsteonaDistributor:
             )
         
         self.preview_text.insert(tk.END, f"\n... (Total: {len(self.distribution_data):,} registros)\n\n")
-        self.preview_text.insert(tk.END, "DATOS PARA GRASSHOPPER:\n")
-        self.preview_text.insert(tk.END, "- position_x_cm, position_y_cm, position_z_cm: Coordenadas cartesianas 3D del centro\n")
+        self.preview_text.insert(tk.END, "DATOS PARA GRASSHOPPER (SOLO ZONA CORTICAL):\n")
+        self.preview_text.insert(tk.END, "- Las osteonas se generan ÚNICAMENTE en la zona cortical del hueso\n")
+        self.preview_text.insert(tk.END, "- position_x_cm, position_y_cm: Coordenadas radiales en zona cortical\n")
+        self.preview_text.insert(tk.END, "- position_z_cm: Coordenada longitudinal\n")
         self.preview_text.insert(tk.END, "- size_um: Diámetro de la osteona en micrómetros\n")
-        self.preview_text.insert(tk.END, "- Radio de osteona: size_um / 2\n")
     
     def export_data(self, format_type):
-        """Exporta los datos incluyendo coordenadas X,Y,Z"""
+        """Exporta los datos de zona cortical"""
         if not self.distribution_data:
             messagebox.showwarning("Advertencia", "No hay datos para exportar.")
             return
@@ -811,77 +842,64 @@ class FemurOsteonaDistributor:
             if format_type == "csv":
                 # Convertir a DataFrame y guardar como CSV
                 df = pd.DataFrame(self.distribution_data)
-                
-                # Ordenar el DataFrame por position_z_cm de menor a mayor
                 df = df.sort_values(by='position_z_cm', ascending=True)
-
-                # Guardar como CSV
                 df.to_csv(file_path, index=False)
             else:  # JSON
-                # Ordenar la lista de osteonas por position_z_cm
                 sorted_data = sorted(self.distribution_data, key=lambda x: x['position_z_cm'])
-
-                # Guardar como JSON
                 data = {
                     "femur_info": self.sections_data,
-                    "osteonas": sorted_data  # Usar la lista ordenada
+                    "osteonas": sorted_data
                 }
                 
                 with open(file_path, 'w') as f:
                     json.dump(data, f, indent=4)
             
-            messagebox.showinfo("Éxito", f"Datos exportados a {file_path}")
+            messagebox.showinfo("Éxito", f"Datos de zona cortical exportados a {file_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Error al exportar los datos: {str(e)}")
     
     def export_report(self):
-        """Exporta un informe completo"""
+        """Exporta un informe completo de zona cortical"""
         if not self.sections_data or not self.distribution_data:
             messagebox.showwarning("Advertencia", "No hay datos para generar un informe.")
             return
             
-        # Determinar la ruta de la carpeta
-        folder_path = filedialog.askdirectory(
-            title="Seleccionar Carpeta para Informe"
-        )
+        folder_path = filedialog.askdirectory(title="Seleccionar Carpeta para Informe")
         
         if not folder_path:
             return
             
         try:
-            # Crear un nombre de proyecto basado en la fecha y hora
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            project_name = f"femur_anatomico_report_{timestamp}"
+            project_name = f"femur_cortical_report_{timestamp}"
             project_folder = os.path.join(folder_path, project_name)
             
-            # Crear carpeta del proyecto
             os.makedirs(project_folder, exist_ok=True)
             
-            # 1. Guardar los datos en CSV
-            csv_path = os.path.join(project_folder, "osteonas_anatomicas.csv")
+            # Guardar los datos en CSV
+            csv_path = os.path.join(project_folder, "osteonas_zona_cortical.csv")
             df = pd.DataFrame(self.distribution_data)
             df.to_csv(csv_path, index=False)
             
-            # 2. Guardar la configuración en JSON
-            config_path = os.path.join(project_folder, "configuracion_anatomica.json")
+            # Guardar la configuración en JSON
+            config_path = os.path.join(project_folder, "configuracion_cortical.json")
             with open(config_path, 'w') as f:
                 json.dump(self.sections_data, f, indent=4)
             
-            # 3. Guardar la visualización
-            viz_path = os.path.join(project_folder, "visualizacion_anatomica.png")
+            # Guardar la visualización
+            viz_path = os.path.join(project_folder, "visualizacion_cortical.png")
             self.figure.savefig(viz_path, dpi=300, bbox_inches='tight')
             
-            # 4. Generar un informe HTML
-            html_path = os.path.join(project_folder, "informe_anatomico.html")
+            # Generar un informe HTML
+            html_path = os.path.join(project_folder, "informe_cortical.html")
             self.generate_html_report(html_path)
             
-            messagebox.showinfo("Éxito", f"Informe anatómico completo generado en {project_folder}")
+            messagebox.showinfo("Éxito", f"Informe de zona cortical generado en {project_folder}")
         except Exception as e:
             messagebox.showerror("Error", f"Error al generar el informe: {str(e)}")
     
     def generate_html_report(self, html_path):
-        """Genera un informe HTML con información anatómica"""
-        # Contar osteonas por sección
+        """Genera un informe HTML de zona cortical"""
         section_counts = {}
         for osteona in self.distribution_data:
             section = osteona["section_name"]
@@ -889,66 +907,67 @@ class FemurOsteonaDistributor:
                 section_counts[section] = 0
             section_counts[section] += 1
         
-        # Calcular estadísticas anatómicas
-        total_area = sum(math.pi * (section['radius_cm'] ** 2) for section in self.sections_data["sections"])
+        # Calcular área cortical total
+        total_cortical_area = sum(
+            math.pi * (section['radius_cm']**2 - max(0, section['radius_cm'] - section['cortical_thickness'])**2)
+            for section in self.sections_data["sections"]
+        )
         
-        # Crear el contenido HTML
         html_content = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Informe Anatómico - Distribución de Osteonas en Fémur</title>
+            <title>Informe Zona Cortical - Distribución Realista de Osteonas</title>
             <style>
                 body {{ font-family: Arial, sans-serif; margin: 20px; }}
                 h1, h2, h3 {{ color: #3366cc; }}
-                table {{ border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 20px; }}
+                table {{ border-collapse: collapse; width: 100%; margin: 10px 0 20px 0; }}
                 th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
                 th {{ background-color: #f2f2f2; }}
-                .section {{ margin-bottom: 30px; }}
-                .visualization {{ text-align: center; margin: 20px 0; }}
-                .visualization img {{ max-width: 100%; }}
                 .highlight {{ background-color: #ffffcc; font-weight: bold; }}
+                .cortical {{ color: #cc3333; font-weight: bold; }}
             </style>
         </head>
         <body>
-            <h1>Informe Anatómico - Distribución de Osteonas en Fémur</h1>
+            <h1>Informe Zona Cortical - Distribución Realista de Osteonas</h1>
             <p>Fecha de generación: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
-            <p class="highlight">Modelo anatómicamente correcto con ~{len(self.distribution_data):,} osteonas</p>
+            <p class="highlight cortical">Modelo anatómicamente correcto - SOLO ZONA CORTICAL</p>
+            <p class="highlight">~{len(self.distribution_data):,} osteonas distribuidas únicamente en hueso cortical</p>
             
-            <div class="section">
-                <h2>Parámetros Anatómicos del Fémur</h2>
+            <div>
+                <h2>Parámetros Anatómicos del Fémur - Zona Cortical</h2>
                 <p>Longitud total: {self.sections_data['total_length_cm']:.2f} cm</p>
-                <p>Área cortical total: {total_area:.2f} cm²</p>
+                <p class="cortical">Área cortical total: {total_cortical_area:.2f} cm²</p>
+                <p>Las osteonas se generan ÚNICAMENTE en la zona cortical (anillo exterior)</p>
                 
-                <h3>Secciones Anatómicas del Fémur</h3>
+                <h3>Secciones Anatómicas - Zona Cortical</h3>
                 <table>
                     <tr>
                         <th>Sección</th>
-                        <th>Inicio (cm)</th>
-                        <th>Fin (cm)</th>
-                        <th>Longitud (cm)</th>
-                        <th>Radio (cm)</th>
-                        <th>Área (cm²)</th>
+                        <th>Radio Total (cm)</th>
+                        <th>Grosor Cortical (cm)</th>
+                        <th>Radio Interno (cm)</th>
+                        <th>Área Cortical (cm²)</th>
                         <th>Densidad (ost/cm²)</th>
-                        <th>Tamaño (μm)</th>
-                        <th>Variabilidad</th>
+                        <th>Osteonas Generadas</th>
                     </tr>
         """
         
-        # Añadir filas para cada sección
         for section in self.sections_data["sections"]:
-            area_cm2 = math.pi * (section['radius_cm'] ** 2)
+            radio_externo = section['radius_cm']
+            radio_interno = max(0, radio_externo - section['cortical_thickness'])
+            cortical_area = math.pi * (radio_externo**2 - radio_interno**2)
+            osteonas_count = section_counts.get(section['name'], 0)
+            
             html_content += f"""
                     <tr>
                         <td>{section['name']}</td>
-                        <td>{section['start_cm']:.2f}</td>
-                        <td>{section['end_cm']:.2f}</td>
-                        <td>{section['length_cm']:.2f}</td>
-                        <td>{section['radius_cm']:.2f}</td>
-                        <td>{area_cm2:.2f}</td>
+                        <td>{radio_externo:.2f}</td>
+                        <td>{section['cortical_thickness']:.2f}</td>
+                        <td>{radio_interno:.2f}</td>
+                        <td>{cortical_area:.2f}</td>
                         <td>{section['density_per_cm2']:.0f}</td>
-                        <td>{section['osteona_size_um']:.1f}</td>
-                        <td>{section['variability']:.2f}</td>
+                        <td>{osteonas_count:,}</td>
                     </tr>
             """
         
@@ -956,24 +975,23 @@ class FemurOsteonaDistributor:
                 </table>
             </div>
             
-            <div class="section">
-                <h2>Guía para Grasshopper - Coordenadas 3D</h2>
-                <p>Para importar estos datos anatómicos en Grasshopper, utilice el archivo CSV generado ('osteonas_anatomicas.csv').
-                Este archivo contiene coordenadas 3D completas para cada osteona:</p>
+            <div>
+                <h2>Guía para Grasshopper - Zona Cortical Realista</h2>
+                <p><strong class="cortical">¡IMPORTANTE!</strong> Este modelo genera osteonas ÚNICAMENTE en la zona cortical del hueso.</p>
+                <p>Utilice el archivo CSV generado ('osteonas_zona_cortical.csv') que contiene:</p>
                 <ul>
-                    <li><strong>section_name</strong>: Sección anatómica donde se encuentra la osteona</li>
-                    <li><strong>position_x_cm</strong>: Coordenada X en cm (radial)</li>
-                    <li><strong>position_y_cm</strong>: Coordenada Y en cm (radial)</li>
-                    <li><strong>position_z_cm</strong>: Coordenada Z en cm (longitudinal desde cabeza femoral)</li>
+                    <li><strong>section_name</strong>: Sección anatómica</li>
+                    <li><strong>position_x_cm, position_y_cm</strong>: Coordenadas radiales EN LA ZONA CORTICAL</li>
+                    <li><strong>position_z_cm</strong>: Coordenada longitudinal</li>
                     <li><strong>size_um</strong>: Diámetro de la osteona en micrómetros</li>
                 </ul>
+                <p class="cortical">La distribución radial está limitada entre el radio interno y externo de cada sección, 
+                replicando la anatomía real donde las osteonas solo existen en hueso cortical.</p>
             </div>
-            
         </body>
         </html>
         """
         
-        # Escribir el contenido a un archivo
         with open(html_path, 'w', encoding='utf-8') as f:
             f.write(html_content)
 
